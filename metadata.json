@@ -1,0 +1,5 @@
+{
+  "name": "Grammar Sensei",
+  "description": "An interactive, chat-based grammar tutor that explains concepts with humor and patience, inspired by modern messaging apps.",
+  "requestFramePermissions": []
+}
