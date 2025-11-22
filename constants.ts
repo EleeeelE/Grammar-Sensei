@@ -10,46 +10,54 @@ export const LESSON_CATEGORIES = [
   'N1语法'
 ];
 
-export const CATEGORY_META: Record<string, { description: string; color: string; iconBg: string; level: string }> = {
+// Optimized for readability: Dark text (blue-950) on light backgrounds, White text on dark backgrounds.
+// Colors are now softer (500/400) or deeper (950).
+export const CATEGORY_META: Record<string, { description: string; color: string; iconBg: string; level: string; borderColor: string }> = {
   '基础篇': { 
     description: '五十音图与日语的底层逻辑', 
-    color: 'text-orange-600', 
-    iconBg: 'bg-orange-100',
-    level: 'Basic' 
+    color: 'text-blue-950', 
+    iconBg: 'bg-white',
+    level: 'Basic',
+    borderColor: 'border-blue-950'
   },
   'N5语法': { 
     description: '120个核心语法点，通关生存日语', 
-    color: 'text-green-600', 
-    iconBg: 'bg-green-100',
-    level: 'N5' 
+    color: 'text-white', 
+    iconBg: 'bg-blue-500',
+    level: 'N5',
+    borderColor: 'border-blue-950'
   },
   'N4语法': { 
     description: '动词变形与基础复句', 
-    color: 'text-teal-600', 
-    iconBg: 'bg-teal-100',
-    level: 'N4' 
+    color: 'text-blue-950', 
+    iconBg: 'bg-blue-200',
+    level: 'N4',
+    borderColor: 'border-blue-950'
   },
   'N3语法': { 
     description: '日常交流与进阶表达', 
-    color: 'text-blue-600', 
-    iconBg: 'bg-blue-100',
-    level: 'N3' 
+    color: 'text-white', 
+    iconBg: 'bg-blue-600',
+    level: 'N3',
+    borderColor: 'border-blue-950'
   },
   'N2语法': { 
     description: '商务日语与抽象逻辑', 
-    color: 'text-indigo-600', 
-    iconBg: 'bg-indigo-100',
-    level: 'N2' 
+    color: 'text-blue-950', 
+    iconBg: 'bg-blue-100',
+    level: 'N2',
+    borderColor: 'border-blue-950'
   },
   'N1语法': { 
     description: '生硬书面语与高阶修辞', 
-    color: 'text-purple-600', 
-    iconBg: 'bg-purple-100',
-    level: 'N1' 
+    color: 'text-white', 
+    iconBg: 'bg-blue-400', // Changed from bg-blue-800 to lighter blue
+    level: 'N1',
+    borderColor: 'border-blue-950'
   },
 };
 
-export const PREDEFINED_LESSONS: Lesson[] = [
+let lessons: Lesson[] = [
   // --- 基础篇 ---
   {
     id: 'b-1',
@@ -76,8 +84,7 @@ export const PREDEFINED_LESSONS: Lesson[] = [
     initialPrompt: '请用最形象的方式解释什么是“助词”（Particle）。为什么说日语是“黏着语”？'
   },
 
-  // --- N5 完整 120 课 ---
-  // 1-10
+  // --- N5 120 课 ---
   { id: 'n5-1', category: 'N5语法', title: '我是谁？', subtitle: '名词1+は+名词2+です/ではありません', duration: '5m', initialPrompt: '教我用日语自我介绍和否定，讲解 AはBです 句型。' },
   { id: 'n5-2', category: 'N5语法', title: '昨日的我', subtitle: '名词1+は+名词2+でした/ではありませんでした', duration: '5m', initialPrompt: '教我日语名词句的过去式。' },
   { id: 'n5-3', category: 'N5语法', title: '朋友之间别客气', subtitle: '名词1+は+名词2+だ/ではない', duration: '4m', initialPrompt: '教我日语名词句的简体（普通形），用于朋友对话。' },
@@ -88,8 +95,7 @@ export const PREDEFINED_LESSONS: Lesson[] = [
   { id: 'n5-8', category: 'N5语法', title: '特指这个东西', subtitle: 'この、その、あの、どの', duration: '5m', initialPrompt: '教我日语的连体词：この、その、あの、どの。' },
   { id: 'n5-9', category: 'N5语法', title: '我在哪？', subtitle: 'ここ、そこ、あそこ、どこ', duration: '5m', initialPrompt: '教我日语的地点指示词：ここ、そこ、あそこ、どこ。' },
   { id: 'n5-10', category: 'N5语法', title: '就这样办', subtitle: 'こう、そう、ああ、どう', duration: '5m', initialPrompt: '教我日语的副词性指示词：こう、そう、ああ、どう。' },
-
-  // 11-20
+  
   { id: 'n5-11', category: 'N5语法', title: '这边请', subtitle: 'こちら、そちら、あちら、どちら', duration: '5m', initialPrompt: '教我日语的方向/礼貌指示词：こちら、そちら、あちら、どちら。' },
   { id: 'n5-12', category: 'N5语法', title: '那种人', subtitle: 'こんな、そんな、あんな、どんな', duration: '5m', initialPrompt: '教我日语的样态指示词：こんな、そんな、あんな、どんな。' },
   { id: 'n5-13', category: 'N5语法', title: '数数游戏', subtitle: '基数词', duration: '6m', initialPrompt: '教我日语基本的数字读法（基数词）。' },
@@ -100,8 +106,6 @@ export const PREDEFINED_LESSONS: Lesson[] = [
   { id: 'n5-18', category: 'N5语法', title: '自作自受？', subtitle: '自动词和他动词', duration: '8m', initialPrompt: '教我日语自动词和他动词的区别逻辑。' },
   { id: 'n5-19', category: 'N5语法', title: '变身！礼貌模式', subtitle: '动词「ます形」及敬体形', duration: '8m', initialPrompt: '教我日语动词的 Masu 形变形规则。' },
   { id: 'n5-20', category: 'N5语法', title: '万能胶水', subtitle: '动词「て形」', duration: '10m', initialPrompt: '教我日语动词最重要的 Te 形变形口诀。' },
-
-  // 21-30
   { id: 'n5-21', category: 'N5语法', title: '往事随风', subtitle: '动词「た形」', duration: '6m', initialPrompt: '教我日语动词的 Ta 形（简体过去式）。' },
   { id: 'n5-22', category: 'N5语法', title: '不许做！', subtitle: '动词「ない形」', duration: '6m', initialPrompt: '教我日语动词的 Nai 形（否定式）。' },
   { id: 'n5-23', category: 'N5语法', title: '切换频道', subtitle: '动词敬体形和普通形', duration: '5m', initialPrompt: '总结动词的敬体和简体切换。' },
@@ -112,8 +116,6 @@ export const PREDEFINED_LESSONS: Lesson[] = [
   { id: 'n5-28', category: 'N5语法', title: '这里有活物', subtitle: 'いる', duration: '5m', initialPrompt: '讲解存在动词 いる (有生命)。' },
   { id: 'n5-29', category: 'N5语法', title: '那！就是那个形容词', subtitle: 'な形容词普通形', duration: '5m', initialPrompt: '教我日语的形容动词（Na形容词）的普通形。' },
   { id: 'n5-30', category: 'N5语法', title: '那！要礼貌', subtitle: 'な形容词敬体形', duration: '5m', initialPrompt: '教我日语的形容动词（Na形容词）的敬体形。' },
-
-  // 31-40
   { id: 'n5-31', category: 'N5语法', title: '漂亮的姑娘', subtitle: 'な形容词+名词', duration: '4m', initialPrompt: '教我 Na形容词如何修饰名词（加哪？）。' },
   { id: 'n5-32', category: 'N5语法', title: '既漂亮又聪明', subtitle: 'な形容词「て形」', duration: '5m', initialPrompt: '教我 Na形容词的中顿形（で）。' },
   { id: 'n5-33', category: 'N5语法', title: '变得漂亮', subtitle: 'な形容词+动词', duration: '5m', initialPrompt: '教我 Na形容词如何修饰动词（变成副词）。' },
@@ -124,8 +126,6 @@ export const PREDEFINED_LESSONS: Lesson[] = [
   { id: 'n5-38', category: 'N5语法', title: '走得快', subtitle: 'い形容词+动词', duration: '5m', initialPrompt: '教我 I形容词 如何修饰动词（变く）。' },
   { id: 'n5-39', category: 'N5语法', title: '几岁啦？', subtitle: 'いくつ', duration: '3m', initialPrompt: '讲解疑问词 いくつ (多少个/几岁)。' },
   { id: 'n5-40', category: 'N5语法', title: '何时君再来', subtitle: 'いつ', duration: '3m', initialPrompt: '讲解疑问词 いつ (什么时候)。' },
-
-  // 41-50
   { id: 'n5-41', category: 'N5语法', title: '那是谁？', subtitle: '誰/どの人/どなた/どの方', duration: '5m', initialPrompt: '讲解询问“谁”的四种不同礼貌程度的说法。' },
   { id: 'n5-42', category: 'N5语法', title: '怎么样？', subtitle: 'どう/いかが', duration: '4m', initialPrompt: '讲解询问意见或情况的 どう 和 いかが。' },
   { id: 'n5-43', category: 'N5语法', title: '大概多久？', subtitle: 'どのぐらい/どれぐらい', duration: '4m', initialPrompt: '讲解询问程度或时长的 どのぐらい。' },
@@ -136,8 +136,6 @@ export const PREDEFINED_LESSONS: Lesson[] = [
   { id: 'n5-48', category: 'N5语法', title: '用工具/在地点', subtitle: 'で', duration: '6m', initialPrompt: '深入讲解助词 で 的多种用法（工具、手段、动作场所）。' },
   { id: 'n5-49', category: 'N5语法', title: '我和你', subtitle: 'と', duration: '5m', initialPrompt: '讲解助词 と (并列、伴随、引用)。' },
   { id: 'n5-50', category: 'N5语法', title: '去哪里/几点', subtitle: 'に', duration: '6m', initialPrompt: '深入讲解助词 に (时间点、目的地、存在场所)。' },
-
-  // 51-60
   { id: 'n5-51', category: 'N5语法', title: '我的', subtitle: 'の', duration: '5m', initialPrompt: '讲解助词 の (所属、同位、修饰)。' },
   { id: 'n5-52', category: 'N5语法', title: '向着夕阳奔跑', subtitle: 'へ', duration: '4m', initialPrompt: '讲解助词 へ (移动方向) 及其读音。' },
   { id: 'n5-53', category: 'N5语法', title: '直到永远', subtitle: 'まで', duration: '4m', initialPrompt: '讲解助词 まで (终点)。' },
@@ -148,8 +146,6 @@ export const PREDEFINED_LESSONS: Lesson[] = [
   { id: 'n5-58', category: 'N5语法', title: '我也一样', subtitle: '～も', duration: '4m', initialPrompt: '讲解 も (也、强调)。' },
   { id: 'n5-59', category: 'N5语法', title: '话题的主角', subtitle: 'は', duration: '5m', initialPrompt: '复习助词 は (话题标记)。' },
   { id: 'n5-60', category: 'N5语法', title: '唯一的爱', subtitle: '～しか～ない', duration: '5m', initialPrompt: '讲解 しか...ない (只/仅，后接否定)。' },
-
-  // 61-70
   { id: 'n5-61', category: 'N5语法', title: '仅仅', subtitle: '～だけ', duration: '5m', initialPrompt: '讲解 だけ (只/仅，后接肯定)。' },
   { id: 'n5-62', category: 'N5语法', title: '大概齐', subtitle: '～くらい/ぐらい', duration: '4m', initialPrompt: '讲解 くらい/ぐらい (程度/概数)。' },
   { id: 'n5-63', category: 'N5语法', title: '等等', subtitle: '～など', duration: '4m', initialPrompt: '讲解 など (举例的省略)。' },
@@ -160,8 +156,6 @@ export const PREDEFINED_LESSONS: Lesson[] = [
   { id: 'n5-68', category: 'N5语法', title: '因为所以(1)', subtitle: '～から', duration: '5m', initialPrompt: '讲解接续助词 から 表示主观原因。' },
   { id: 'n5-69', category: 'N5语法', title: '因为所以(2)', subtitle: '～ので', duration: '5m', initialPrompt: '讲解接续助词 ので 表示客观原因。' },
   { id: 'n5-70', category: 'N5语法', title: '因为(轻微)', subtitle: 'て/で', duration: '5m', initialPrompt: '讲解 て/で 表示轻微的原因。' },
-
-  // 71-80
   { id: 'n5-71', category: 'N5语法', title: '一边...一边...', subtitle: '～ながら', duration: '5m', initialPrompt: '讲解 ながら 表示同时进行的动作。' },
   { id: 'n5-72', category: 'N5语法', title: '而且', subtitle: 'それに', duration: '4m', initialPrompt: '讲解接续词 それに (累加)。' },
   { id: 'n5-73', category: 'N5语法', title: '还是...', subtitle: 'それとも', duration: '4m', initialPrompt: '讲解接续词 それとも (选择疑问)。' },
@@ -172,8 +166,6 @@ export const PREDEFINED_LESSONS: Lesson[] = [
   { id: 'n5-78', category: 'N5语法', title: '是吧？', subtitle: 'ね', duration: '3m', initialPrompt: '讲解终助词 ね (确认/共鸣)。' },
   { id: 'n5-79', category: 'N5语法', title: '哟！', subtitle: 'よ', duration: '3m', initialPrompt: '讲解终助词 よ (告知/提醒)。' },
   { id: 'n5-80', category: 'N5语法', title: '女性语气', subtitle: 'わ', duration: '3m', initialPrompt: '讲解终助词 わ (女性柔和语气)。' },
-
-  // 81-90
   { id: 'n5-81', category: 'N5语法', title: '自言自语', subtitle: 'かな/かしら', duration: '4m', initialPrompt: '讲解终助词 かな (疑惑/自问)。' },
   { id: 'n5-82', category: 'N5语法', title: '过了/之前', subtitle: '时间+すぎ/まえ', duration: '4m', initialPrompt: '讲解时间的表达：过几分/差几分。' },
   { id: 'n5-83', category: 'N5语法', title: '我们/各位', subtitle: '～たち/がた', duration: '4m', initialPrompt: '讲解复数后缀 たち 和 がた (敬语)。' },
@@ -184,8 +176,6 @@ export const PREDEFINED_LESSONS: Lesson[] = [
   { id: 'n5-88', category: 'N5语法', title: '不太...', subtitle: 'あまり', duration: '4m', initialPrompt: '讲解副词 あまり (后接否定)。' },
   { id: 'n5-89', category: 'N5语法', title: '一点点', subtitle: '少し (すこし)', duration: '4m', initialPrompt: '讲解副词 少し。' },
   { id: 'n5-90', category: 'N5语法', title: '完全不', subtitle: 'ぜんぜん', duration: '4m', initialPrompt: '讲解副词 ぜんぜん (后接否定，现代口语也可接肯定)。' },
-
-  // 91-100
   { id: 'n5-91', category: 'N5语法', title: '几乎', subtitle: 'ほとんど', duration: '4m', initialPrompt: '讲解副词 ほとんど。' },
   { id: 'n5-92', category: 'N5语法', title: '总是', subtitle: 'いつも', duration: '4m', initialPrompt: '讲解频度副词 いつも。' },
   { id: 'n5-93', category: 'N5语法', title: '请', subtitle: 'どうぞ', duration: '3m', initialPrompt: '讲解 どうぞ 的用法。' },
@@ -196,8 +186,6 @@ export const PREDEFINED_LESSONS: Lesson[] = [
   { id: 'n5-98', category: 'N5语法', title: '请做/请别做', subtitle: '～てください/ないでください', duration: '6m', initialPrompt: '讲解请求动作和禁止动作的表达。' },
   { id: 'n5-99', category: 'N5语法', title: '能帮我吗', subtitle: '～てくださいませんか/ないでくださいませんか', duration: '6m', initialPrompt: '讲解更礼貌的请求表达。' },
   { id: 'n5-100', category: 'N5语法', title: '约吗？', subtitle: '～ませんか', duration: '5m', initialPrompt: '讲解 ませんか (邀请/提议)。' },
-
-  // 101-110
   { id: 'n5-101', category: 'N5语法', title: '要我帮你吗', subtitle: '～ましょうか', duration: '5m', initialPrompt: '讲解 ましょうか (提议/主动提供帮助)。' },
   { id: 'n5-102', category: 'N5语法', title: '吧！', subtitle: '～ましょう', duration: '5m', initialPrompt: '讲解 ましょう (意志/劝诱)。' },
   { id: 'n5-103', category: 'N5语法', title: '我想我想我想', subtitle: '～たい', duration: '5m', initialPrompt: '讲解 たい (第一人称的愿望)。' },
@@ -208,8 +196,6 @@ export const PREDEFINED_LESSONS: Lesson[] = [
   { id: 'n5-108', category: 'N5语法', title: '正在做', subtitle: '～ている', duration: '6m', initialPrompt: '讲解 ている 的两个核心含义：正在进行、状态持续。' },
   { id: 'n5-109', category: 'N5语法', title: '贴着画', subtitle: '～てある', duration: '6m', initialPrompt: '讲解 てある (人为结果的存续)。' },
   { id: 'n5-110', category: 'N5语法', title: '已经', subtitle: 'もう～', duration: '4m', initialPrompt: '讲解 もう (已经)。' },
-
-  // 111-120
   { id: 'n5-111', category: 'N5语法', title: '还没', subtitle: 'まだ～', duration: '4m', initialPrompt: '讲解 まだ (尚未/仍然)。' },
   { id: 'n5-112', category: 'N5语法', title: '那个更好', subtitle: '～ほうが～', duration: '5m', initialPrompt: '讲解 ほうが (比较/建议)。' },
   { id: 'n5-113', category: 'N5语法', title: '...之前', subtitle: '～前に', duration: '4m', initialPrompt: '讲解动作发生之前 まえに。' },
@@ -221,6 +207,8 @@ export const PREDEFINED_LESSONS: Lesson[] = [
   { id: 'n5-119', category: 'N5语法', title: '哪个更...', subtitle: '～と～とどちらが～か', duration: '6m', initialPrompt: '讲解 两者比较的句型。' },
   { id: 'n5-120', category: 'N5语法', title: '世界第一', subtitle: '～で～がいちばん～', duration: '6m', initialPrompt: '讲解 最高级比较句型。' },
 ];
+
+export const PREDEFINED_LESSONS = lessons;
 
 export const DEFAULT_SUGGESTIONS = [
   { label: '举个例子 🌰', value: '请给我举一个简单的例子。' },

@@ -5,17 +5,107 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Grammar Sensei</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Noto+Sans+SC:wght@400;700;900&family=Patrick+Hand&display=swap" rel="stylesheet">
     <style>
+      :root {
+        /* Optimized Colors */
+        --core-blue: #3B82F6; /* Softer Blue (Tailwind Blue-500) instead of 600 */
+        --deep-blue: #172554; /* Darker Ink (Tailwind Blue-950) for contrast */
+        --paper-white: #FFFFFF;
+      }
+
       body {
-        font-family: 'Inter', 'Noto Sans SC', sans-serif;
-        /* Hide scrollbar for Chrome, Safari and Opera */
+        font-family: 'Patrick Hand', 'Noto Sans SC', sans-serif;
+        background-color: var(--core-blue);
+        /* Lighter, more subtle pattern */
+        background-image: radial-gradient(rgba(255, 255, 255, 0.15) 2px, transparent 2px);
+        background-size: 32px 32px;
+        color: var(--deep-blue);
+        
+        /* Hide scrollbar */
         ::-webkit-scrollbar {
           display: none;
         }
-        /* Hide scrollbar for IE, Edge and Firefox */
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
+        -ms-overflow-style: none; 
+        scrollbar-width: none; 
+      }
+      
+      /* The "Wobbly" Sketchy Border Utility */
+      .sketchy-box {
+        border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+        border: 3px solid var(--deep-blue); /* Darker border for better definition */
+      }
+
+      .sketchy-box-sm {
+        border-radius: 25px 5px 22px 5px / 5px 22px 5px 25px;
+        border: 2px solid var(--deep-blue);
+      }
+
+      /* Hard Sketchy Shadow - Darker */
+      .shadow-sketchy {
+        box-shadow: 4px 4px 0px 0px var(--deep-blue);
+      }
+      .shadow-sketchy-sm {
+        box-shadow: 2px 2px 0px 0px var(--deep-blue);
+      }
+      .shadow-sketchy-lg {
+        box-shadow: 6px 6px 0px 0px var(--deep-blue);
+      }
+      
+      .font-hand {
+        font-family: 'Patrick Hand', cursive;
+      }
+
+      /* Spring Animations */
+      .animate-pop-in {
+        animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      
+      .animate-slide-up {
+        animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      @keyframes popIn {
+        0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); }
+      }
+
+      @keyframes slideUp {
+        0% { opacity: 0; transform: translateY(20px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      
+      /* Float Animation for Landing Page Showcase */
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+      }
+      .animate-float {
+        animation: float 4s ease-in-out infinite;
+      }
+      .animate-float-delayed {
+        animation: float 5s ease-in-out infinite;
+        animation-delay: 1s;
+      }
+      .animate-float-slow {
+        animation: float 6s ease-in-out infinite;
+        animation-delay: 2s;
+      }
+
+      /* Interactive Press Effect */
+      .active-press:active {
+        transform: scale(0.98) translateY(2px);
+        box-shadow: none;
+      }
+
+      /* Page Transition: Smooth Entry */
+      .animate-enter-app {
+        animation: enterApp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      @keyframes enterApp {
+        0% { opacity: 0; transform: scale(1.05); }
+        100% { opacity: 1; transform: scale(1); }
       }
     </style>
   <script type="importmap">
@@ -31,7 +121,7 @@
 }
 </script>
 </head>
-  <body class="bg-gray-50 text-gray-900 h-screen overflow-hidden antialiased selection:bg-green-200 selection:text-green-900">
+  <body class="h-screen overflow-hidden antialiased selection:bg-white selection:text-blue-600">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

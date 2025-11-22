@@ -1,61 +1,81 @@
+
 import React from 'react';
-import { Message } from '../types';
+import { Message, FontSize } from '../types';
 import { Sparkles, User } from 'lucide-react';
 import Markdown from 'react-markdown';
 
 interface ChatBubbleProps {
   message: Message;
   showAvatar: boolean;
+  fontSize: FontSize;
 }
 
-export const ChatBubble: React.FC<ChatBubbleProps> = ({ message, showAvatar }) => {
+export const ChatBubble: React.FC<ChatBubbleProps> = ({ message, showAvatar, fontSize }) => {
   const isUser = message.role === 'user';
 
+  // Font size mapping - Scaled down
+  const fontSizeClasses = {
+    'small': 'text-xs',      // 12px
+    'normal': 'text-sm',     // 14px
+    'large': 'text-base',    // 16px
+    'xl': 'text-lg'          // 18px
+  };
+
+  const currentFontClass = fontSizeClasses[fontSize] || 'text-sm';
+
   return (
-    <div className={`flex w-full ${isUser ? 'justify-end mb-6' : 'justify-start mb-2'} animate-[fadeInUp_0.3s_ease-out]`}>
+    <div className={`flex w-full ${isUser ? 'justify-end mb-5' : 'justify-start mb-3'} animate-[fadeInUp_0.3s_ease-out]`}>
       <style>
         {`
           @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
           }
         `}
       </style>
 
-      {/* AI Avatar Column - Top Aligned */}
+      {/* AI Avatar Column */}
       {!isUser && (
-        <div className="flex-shrink-0 mr-3 w-8 flex flex-col justify-start">
+        <div className="flex-shrink-0 mr-2 flex flex-col justify-start z-10 w-10">
           {showAvatar ? (
-            <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white shadow-sm mt-1">
-              <Sparkles size={16} />
+            <div className="w-10 h-10 bg-white border-[3px] border-blue-500 flex items-center justify-center text-blue-500 shadow-sketchy-sm" style={{ borderRadius: '40% 60% 60% 40% / 60% 40% 60% 40%' }}>
+              <Sparkles size={20} strokeWidth={3} />
             </div>
           ) : (
-            <div className="w-8" /> // Spacer
+             /* Placeholder */
+             <div className="w-10" /> 
           )}
         </div>
       )}
 
       <div
-        className={`relative max-w-[85%] px-4 py-3 text-[15px] leading-relaxed shadow-sm transition-all duration-200 ${
-          isUser
-            ? 'bg-green-600 text-white rounded-2xl rounded-tr-sm'
-            : `bg-[#F2F4F5] text-gray-800 rounded-2xl ${showAvatar ? 'rounded-tl-sm' : 'ml-0'}`
-        }`}
+        className={`relative max-w-[85%] px-4 py-3 leading-relaxed border-[3px] border-blue-500 shadow-sketchy ${currentFontClass}
+          ${isUser 
+            ? 'bg-blue-500 text-white rounded-2xl rounded-tr-none mr-1' // User: Blue Block (Softer 500)
+            : 'bg-white text-blue-950 rounded-2xl rounded-tl-none' // AI: White Paper, Dark Text (950)
+          }
+        `}
+        style={{
+            // Slight organic radius variation
+            borderRadius: isUser ? '15px 2px 15px 15px' : '2px 15px 15px 15px'
+        }}
       >
-        {isUser ? (
-          message.text
-        ) : (
-          <div className="markdown-body [&>p]:mb-0">
-             <Markdown>{message.text}</Markdown>
-          </div>
-        )}
+        <div className="relative z-10 font-bold font-hand tracking-wide">
+            {isUser ? (
+            message.text
+            ) : (
+            <div className="markdown-body [&>p]:mb-1 font-hand">
+                <Markdown>{message.text}</Markdown>
+            </div>
+            )}
+        </div>
       </div>
 
-      {/* User Avatar - Top Aligned */}
+      {/* User Avatar */}
       {isUser && (
-        <div className="flex-shrink-0 ml-3 flex flex-col justify-start">
-           <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 shadow-sm mt-1">
-            <User size={16} />
+        <div className="flex-shrink-0 ml-2 flex flex-col justify-start z-10">
+           <div className="w-9 h-9 bg-white border-[3px] border-blue-500 flex items-center justify-center text-blue-500 shadow-sketchy-sm" style={{ borderRadius: '50% 50% 40% 60% / 50% 50% 60% 40%' }}>
+            <User size={20} strokeWidth={3} />
           </div>
         </div>
       )}

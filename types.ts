@@ -14,13 +14,7 @@ export interface Lesson {
   duration: string;
   initialPrompt: string;
   category: string;
-}
-
-export interface Note {
-  id: string;
-  lessonTitle: string;
-  content: string;
-  timestamp: number;
+  // tasks property removed
 }
 
 export interface SuggestedReply {
@@ -28,10 +22,12 @@ export interface SuggestedReply {
   value: string;
 }
 
+export type FontSize = 'small' | 'normal' | 'large' | 'xl';
+
 export enum ViewState {
   LANDING = 'LANDING',
-  HOME = 'HOME', // Now acts as the Category List view
-  CATEGORY_DETAILS = 'CATEGORY_DETAILS', // New view for listing lessons in a category
+  HOME = 'HOME',
+  CATEGORY_DETAILS = 'CATEGORY_DETAILS',
   CHAT = 'CHAT',
-  NOTES = 'NOTES' // New view for listing user notes
+  FAVORITES = 'FAVORITES'
 }
