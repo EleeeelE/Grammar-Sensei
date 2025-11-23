@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { Lesson } from "../types";
 
@@ -10,9 +11,8 @@ const BASE_SYSTEM_INSTRUCTION = `
 1.  **极致简短**：每次回复通常只发 1-2 个气泡。每个气泡**不超过 30 个字**。
 2.  **像朋友一样**：禁止使用教科书式的长篇大论。用口语、用 Emoji ✨。
 3.  **循循善诱**：
-    *   不要一次性把知识点讲完！
-    *   讲一个点，然后**提问**，确认用户懂了，或者引导用户猜下一个点。
-    *   等待用户回复后，再讲下一步。
+    *   **课程介绍 (重要！)**: 收到用户的初始问题后，你的**第一次回复必须**先用一两句话，热情地介绍一下这节课的目标和内容大纲，然后再开始教学。
+    *   **分步教学**: 不要一次性把知识点讲完！讲一个点，然后**提问**，确认用户懂了，或者引导用户猜下一个点。等待用户回复后，再讲下一步。
 4.  **强制中文**：除非举例日语单词，否则全用中文交流。
 5.  **分隔符**：使用 "===" 分隔气泡。
 
@@ -61,6 +61,7 @@ export const sendMessageStream = async function* (message: string) {
   const result = await chatSession.sendMessageStream({ message });
   
   for await (const chunk of result) {
+    // FIX: The chunk itself needs to be cast to GenerateContentResponse, not a property of it.
     yield chunk as GenerateContentResponse;
   }
 };

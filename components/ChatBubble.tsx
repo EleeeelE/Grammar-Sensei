@@ -13,6 +13,41 @@ interface ChatBubbleProps {
 export const ChatBubble: React.FC<ChatBubbleProps> = ({ message, showAvatar, fontSize }) => {
   const isUser = message.role === 'user';
 
+  // Handle the initial "Thinking" state with a three-dots animation
+  if (message.isStreaming && !message.text) {
+    return (
+      <div className={`flex w-full justify-start mb-3 animate-pop-in`}>
+        <style>
+          {`
+            @keyframes thinking-dot-bounce {
+              0%, 80%, 100% { transform: scale(0); }
+              40% { transform: scale(1.0); }
+            }
+          `}
+        </style>
+        <div className="flex-shrink-0 mr-2 flex flex-col justify-start z-10 w-10">
+          {showAvatar ? (
+            <div className="w-10 h-10 bg-white border-[3px] border-blue-500 flex items-center justify-center text-blue-500 shadow-sketchy-sm" style={{ borderRadius: '40% 60% 60% 40% / 60% 40% 60% 40%' }}>
+              <Sparkles size={20} strokeWidth={3} />
+            </div>
+          ) : (
+            <div className="w-10" />
+          )}
+        </div>
+        <div
+          className={`relative max-w-[85%] px-4 py-3 leading-relaxed border-[3px] border-blue-500 shadow-sketchy bg-white text-blue-950 rounded-2xl rounded-tl-none`}
+          style={{ borderRadius: '2px 15px 15px 15px' }}
+        >
+          <div className="flex items-center justify-center gap-1.5 h-6">
+            <span className="w-2 h-2 bg-blue-400 rounded-full" style={{ animation: 'thinking-dot-bounce 1.4s infinite ease-in-out both', animationDelay: '-0.32s' }}></span>
+            <span className="w-2 h-2 bg-blue-400 rounded-full" style={{ animation: 'thinking-dot-bounce 1.4s infinite ease-in-out both', animationDelay: '-0.16s' }}></span>
+            <span className="w-2 h-2 bg-blue-400 rounded-full" style={{ animation: 'thinking-dot-bounce 1.4s infinite ease-in-out both' }}></span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Font size mapping - Scaled down
   const fontSizeClasses = {
     'small': 'text-xs',      // 12px

@@ -1,4 +1,5 @@
 
+
 import { Lesson } from './types';
 
 export const LESSON_CATEGORIES = [
@@ -58,30 +59,86 @@ export const CATEGORY_META: Record<string, { description: string; color: string;
 };
 
 let lessons: Lesson[] = [
-  // --- 基础篇 ---
+  // --- 基础篇 (Expanded to 10 lessons) ---
   {
     id: 'b-1',
     category: '基础篇',
-    title: '声音的本质',
-    subtitle: '五个元音定乾坤',
-    duration: '6 分钟',
-    initialPrompt: '请从底层逻辑教我日语发音。不要只是罗列五十音图。请告诉我为什么只要掌握 a i u e o 这五个元音，就能搞定90%的发音？'
+    title: '元音定乾坤',
+    subtitle: 'a i u e o 的秘密',
+    duration: '5 分钟',
+    initialPrompt: 'Sensei, 请从底层逻辑教我日语发音。为什么说只要掌握 a i u e o 这五个元音，就能搞定所有发音？'
   },
   {
     id: 'b-2',
     category: '基础篇',
-    title: '思维的倒转',
-    subtitle: '为什么谓语在最后？',
+    title: '五十音图的本质',
+    subtitle: '不是字母表，是声音地图',
     duration: '8 分钟',
-    initialPrompt: '请教我日语句子的核心逻辑。为什么说日语是“必须听到最后才能懂”的语言？'
+    initialPrompt: 'Sensei, 五十音图好难背啊！有没有什么诀窍？它到底是个什么东西？'
   },
   {
     id: 'b-3',
     category: '基础篇',
-    title: '黏着语的魔力',
-    subtitle: '助词就是“身份标签”',
+    title: '声音的“变身”',
+    subtitle: '清音、浊音与半浊音',
+    duration: '6 分钟',
+    initialPrompt: 'Sensei, “か” (ka) 怎么有时候会念成 “が” (ga)？请教我日语的浊音和半浊音。'
+  },
+  {
+    id: 'b-4',
+    category: '基础篇',
+    title: '声音的“合体”',
+    subtitle: '拗音的组合逻辑',
+    duration: '6 分钟',
+    initialPrompt: 'Sensei, 像 “きゃ” (kya) 这种两个假名拼成一个音的“拗音”是什么原理？'
+  },
+  {
+    id: 'b-5',
+    category: '基础篇',
+    title: '三种特殊节拍',
+    subtitle: '长音、促音、拨音',
     duration: '8 分钟',
-    initialPrompt: '请用最形象的方式解释什么是“助词”（Particle）。为什么说日语是“黏着语”？'
+    initialPrompt: 'Sensei, 日语里的长音、促音（小っ）和拨音（ん）到底怎么发？它们很重要吗？'
+  },
+  {
+    id: 'b-6',
+    category: '基础篇',
+    title: '另一个“我”',
+    subtitle: '片假名的使用场景',
+    duration: '7 分钟',
+    initialPrompt: 'Sensei, 为什么日本人有平假名还要用片假名？什么时候该用哪个？'
+  },
+  {
+    id: 'b-7',
+    category: '基础篇',
+    title: '思维的倒转',
+    subtitle: '“我饭吃”的语序逻辑',
+    duration: '8 分钟',
+    initialPrompt: 'Sensei, 请教我日语句子的核心逻辑。为什么说日语是“必须听到最后才能懂”的语言？这个 SOV 语序到底是怎么回事？'
+  },
+  {
+    id: 'b-8',
+    category: '基础篇',
+    title: '灵魂粒子',
+    subtitle: '助词：日语的粘合剂',
+    duration: '10 分钟',
+    initialPrompt: 'Sensei, 我听说日语有很多像‘は’‘が’‘を’这样的小字，它们叫“助词”。它们到底是什么？为什么说没有它们，句子就散架了？请从根本上给我讲讲这个概念。'
+  },
+  {
+    id: 'b-9',
+    category: '基础篇',
+    title: '谁在说话？',
+    subtitle: '日语为何总省略主语',
+    duration: '7 分钟',
+    initialPrompt: 'Sensei, 我看日剧发现他们说话很少说‘我’、‘你’。为什么主语总是不见？难道不会搞混吗？请教我这个语言习惯背后的逻辑。'
+  },
+  {
+    id: 'b-10',
+    category: '基础篇',
+    title: '礼貌的艺术',
+    subtitle: 'です/ます体 vs 普通体',
+    duration: '7 分钟',
+    initialPrompt: 'Sensei, 为什么有时候结尾是“です”，有时候又不是？请给我讲讲日语的礼貌体（敬体）和普通体（简体）的基本概念。'
   },
 
   // --- N5 120 课 ---

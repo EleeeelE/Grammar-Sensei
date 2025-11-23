@@ -1,544 +1,587 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ViewState, Message, Lesson, FontSize } from './types';
+// FIX: Import SuggestedReply to handle structured suggestions.
+import { ViewState, Message, Lesson, FontSize, SuggestedReply } from './types';
 import { PREDEFINED_LESSONS, DEFAULT_SUGGESTIONS, LESSON_CATEGORIES, CATEGORY_META } from './constants';
 import { startChat, sendMessageStream, parseContentWithOptions } from './services/geminiService';
 import { LessonCard } from './components/LessonCard';
 import { ChatBubble } from './components/ChatBubble';
 import { ChatInput } from './components/ChatInput';
 import { LandingPage } from './components/LandingPage';
-import { PromoScene } from './components/PromoScene';
 import { ApiKeyModal } from './components/ApiKeyModal';
-import { X, BookOpen, ChevronRight, ArrowLeft, Book, Star, Trash2, CheckCircle2, Settings, Type, Bookmark, Camera, Key, LogOut, Search, ArrowRight, Sparkles } from 'lucide-react';
+import { X, BookOpen, ChevronRight, ArrowLeft, Book, Star, Trash2, CheckCircle2, Key, Search, Sparkles } from 'lucide-react';
 
-// Helper to manage local storage
-const STORAGE_KEYS = {
-  API_KEY: 'grammar_sensei_api_key',
-  COMPLETED_LESSONS: 'grammar_sensei_completed',
-  FAVORITES: 'grammar_sensei_favorites'
+// Helper function to split text into natural chat bubbles
+const splitContentIntoBubbles = (text: string): string[] => {
+  // 1. Split by explicit separator '==='
+  const explicitBlocks = text.split('===');
+  const finalBubbles: string[] = [];
+
+  explicitBlocks.forEach(block => {
+      if (!block.trim()) return;
+
+      // 2. Split by sentence delimiters: 。 ？ ！ ? ! \n
+      // We use capture group to keep the delimiter
+      const segments = block.split(/([。？！?!\n]+)/);
+      let currentBubble = "";
+
+      for (let i = 0; i < segments.length; i++) {
+          const segment = segments[i];
+          const isDelimiter = /^[。？！?!\n]+$/.test(segment);
+
+          if (isDelimiter) {
+              currentBubble += segment;
+              
+              // Look ahead logic:
+              // Don't break bubble if the NEXT segment starts with closing punctuation, markdown formatting, OR EMOJIS
+              const nextSegment = segments[i + 1];
+              
+              let isNextClosing = false;
+              if (nextSegment !== undefined) {
+                  // Closing chars: ” 」 ） ) " ' ’
+                  // Markdown chars that might close a block: * ~ `
+                  // Whitespace only (empty segments between multiple delimiters)
+                  const isClosingChar = /^[”」）)\*~`"'’]|^\s*$/.test(nextSegment);
+                  
+                  // Emoji check: If the next segment starts with an emoji, keep it attached to this sentence.
+                  // Using Unicode property escape for robust emoji detection
+                  const isEmoji = /^\p{Extended_Pictographic}/u.test(nextSegment.trim());
+                  
+                  isNextClosing = isClosingChar || isEmoji;
+              }
+
+              if (!isNextClosing) {
+                  if (currentBubble.trim()) {
+                      finalBubbles.push(currentBubble.trim());
+                      currentBubble = "";
+                  }
+              }
+          } else {
+              currentBubble += segment;
+          }
+      }
+
+      if (currentBubble.trim()) {
+          finalBubbles.push(currentBubble.trim());
+      }
+  });
+
+  return finalBubbles;
 };
 
 const App: React.FC = () => {
-  // --- State ---
+  // Initialize view to LANDING
   const [view, setView] = useState<ViewState>(ViewState.LANDING);
-  const [apiKey, setApiKey] = useState<string>('');
-  const [showKeyModal, setShowKeyModal] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
-  const [customTopic, setCustomTopic] = useState('');
-  
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  // FIX: Update suggestions state to hold objects with label and value for better UX.
+  const [suggestions, setSuggestions] = useState<SuggestedReply[]>([]);
   
+  // New State for Features
+  const [customTopic, setCustomTopic] = useState('');
+  const [apiKey, setApiKey] = useState<string>('');
+  const [showKeyModal, setShowKeyModal] = useState(false);
+
+  // Data Persistence
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const addBubblesSequentially = (bubbles: string[], finalSuggestions: SuggestedReply[], initialThinkingId: string) => {
+    if (!bubbles || bubbles.length === 0) {
+      setMessages(prev => prev.filter(msg => msg.id !== initialThinkingId));
+      setSuggestions(finalSuggestions.length > 0 ? finalSuggestions : DEFAULT_SUGGESTIONS);
+      setInputDisabled(false);
+      return;
+    }
+
+    const processBubble = (index: number, thinkingId: string) => {
+      const bubbleText = bubbles[index];
+      const newBubble: Message = {
+        id: `msg-${Date.now()}-${index}`,
+        role: 'model',
+        text: bubbleText,
+        timestamp: Date.now(),
+      };
+
+      // Replace the current "thinking" bubble with the actual message content
+      setMessages(prev => prev.map(msg => (msg.id === thinkingId ? newBubble : msg)));
+
+      if (index + 1 < bubbles.length) {
+        // More bubbles to show. Calculate delay based on current bubble length.
+        const delay = Math.min(3500, Math.max(800, bubbleText.length * 75));
+        
+        setTimeout(() => {
+          // Add the next "thinking" bubble
+          const nextThinkingId = `thinking-${Date.now()}-${index + 1}`;
+          const thinkingBubble: Message = {
+            id: nextThinkingId,
+            role: 'model',
+            text: '',
+            isStreaming: true,
+            timestamp: Date.now(),
+          };
+          setMessages(prev => [...prev, thinkingBubble]);
+          
+          // Wait a moment so the user sees "..." before it's replaced
+          setTimeout(() => {
+            processBubble(index + 1, nextThinkingId);
+          }, 600);
+
+        }, delay);
+      } else {
+        // This was the last bubble, so finalize the turn.
+        setInputDisabled(false);
+        setSuggestions(finalSuggestions.length > 0 ? finalSuggestions : DEFAULT_SUGGESTIONS);
+      }
+    };
+
+    // Start the process for the very first bubble after a short initial delay.
+    setTimeout(() => {
+      processBubble(0, initialThinkingId);
+    }, 600);
+  };
   
-  const [fontSize, setFontSize] = useState<FontSize>('normal');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // --- Effects ---
-
-  // Load persisted data
+  // --- Initialization & Key Management ---
   useEffect(() => {
-    const storedKey = localStorage.getItem(STORAGE_KEYS.API_KEY);
-    if (storedKey) setApiKey(storedKey);
-
-    const storedCompleted = JSON.parse(localStorage.getItem(STORAGE_KEYS.COMPLETED_LESSONS) || '[]');
-    setCompletedLessons(storedCompleted);
-
-    const storedFavorites = JSON.parse(localStorage.getItem(STORAGE_KEYS.FAVORITES) || '[]');
-    setFavorites(storedFavorites);
+    const savedKey = localStorage.getItem('grammar_sensei_key');
+    if (savedKey) {
+      setApiKey(savedKey);
+    }
+    
+    const savedCompleted = localStorage.getItem('completed_lessons');
+    if (savedCompleted) setCompletedLessons(JSON.parse(savedCompleted));
+    
+    const savedFavorites = localStorage.getItem('favorite_lessons');
+    if (savedFavorites) setFavorites(JSON.parse(savedFavorites));
   }, []);
 
-  // Scroll to bottom on new messages
+  // Effect to handle lesson completion when a chat turn finishes
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
-
-  // --- Handlers ---
+    if (
+      !inputDisabled &&
+      view === ViewState.CHAT &&
+      messages.length > 2 &&
+      currentLesson &&
+      !completedLessons.includes(currentLesson.id)
+    ) {
+      setCompletedLessons(prev => {
+        const newCompleted = [...new Set([...prev, currentLesson.id])];
+        localStorage.setItem('completed_lessons', JSON.stringify(newCompleted));
+        return newCompleted;
+      });
+    }
+  }, [inputDisabled, view, messages, currentLesson, completedLessons]);
 
   const handleSaveKey = (key: string) => {
     setApiKey(key);
-    localStorage.setItem(STORAGE_KEYS.API_KEY, key);
+    localStorage.setItem('grammar_sensei_key', key);
     setShowKeyModal(false);
-    // If we were on landing page, move to home
-    if (view === ViewState.LANDING) {
-      setView(ViewState.HOME);
-    }
   };
 
-  const handleRemoveKey = () => {
-    setApiKey('');
-    localStorage.removeItem(STORAGE_KEYS.API_KEY);
-    setShowSettings(false);
-    setView(ViewState.LANDING);
+  const openKeyModal = () => {
+    setShowKeyModal(true);
   };
 
-  const handleStartAdventure = () => {
-    if (apiKey) {
-      setView(ViewState.HOME);
-    } else {
+  // --- Navigation Handlers ---
+  const handleStart = () => {
+    if (!apiKey) {
       setShowKeyModal(true);
     }
+    setView(ViewState.HOME);
   };
 
-  const toggleFavorite = (lessonId: string) => {
-    const newFavorites = favorites.includes(lessonId)
-      ? favorites.filter(id => id !== lessonId)
-      : [...favorites, lessonId];
-    
-    setFavorites(newFavorites);
-    localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(newFavorites));
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category);
+    setView(ViewState.CATEGORY_DETAILS);
   };
 
-  const handleLessonSelect = (lesson: Lesson) => {
-    setCurrentLesson(lesson);
+  const handleBackToHome = () => {
+    setSelectedCategory(null);
+    setView(ViewState.HOME);
+  };
+
+  const handleBackToCategories = () => {
+    // FIX: Navigate to the category details page, not the chat page again.
+    setView(ViewState.CATEGORY_DETAILS);
+    setCurrentLesson(null);
     setMessages([]);
-    setSuggestions([]);
-    setView(ViewState.CHAT);
-    
-    // Start the chat session
-    initiateChat(lesson);
+  };
+  
+  const handleGoToFavorites = () => {
+    setView(ViewState.FAVORITES);
   };
 
-  const handleStartCustomLesson = () => {
+  // --- Custom Topic Logic ---
+  const handleCustomTopicStart = async () => {
     if (!customTopic.trim()) return;
-    
+    if (!apiKey) {
+        setShowKeyModal(true);
+        return;
+    }
+
     const newLesson: Lesson = {
       id: `custom-${Date.now()}`,
       title: customTopic,
-      subtitle: '自由探索',
-      duration: '自选',
-      initialPrompt: `我想学习关于“${customTopic}”的日语知识。请用生动有趣的方式教我，像一位耐心的老师。`,
-      category: '自定义'
+      subtitle: '自由探索模式',
+      category: 'Custom',
+      duration: '∞',
+      initialPrompt: `我想学习关于"${customTopic}"的日语知识。请作为老师教我。`
     };
-    
-    handleLessonSelect(newLesson);
+
+    startLesson(newLesson);
     setCustomTopic('');
   };
 
-  const initiateChat = async (lesson: Lesson) => {
-    try {
-      setIsTyping(true);
-      setInputDisabled(true);
-      
-      // Initialize Gemini Chat
-      startChat(lesson, apiKey);
+  const handleToggleFavorite = (lessonId: string) => {
+    setFavorites(prev => {
+      const newFavs = prev.includes(lessonId) 
+        ? prev.filter(id => id !== lessonId)
+        : [...prev, lessonId];
+      localStorage.setItem('favorite_lessons', JSON.stringify(newFavs));
+      return newFavs;
+    });
+  };
 
-      // Add initial system message (invisible to user usually, but here we simulate the first turn)
-      // Actually, in this design, the AI speaks first based on the prompt.
-      
-      const initialMsgId = Date.now().toString();
-      let fullResponse = "";
-      
-      // We send a hidden trigger message to get the AI to start the lesson
-      const stream = sendMessageStream("开始上课。请按照System Instruction的要求，简短地开始第一句讲解。");
-      
-      setMessages([{
-        id: initialMsgId,
+  // --- Chat Logic ---
+  const startLesson = async (lesson: Lesson) => {
+    setCurrentLesson(lesson);
+    setView(ViewState.CHAT);
+    setMessages([]);
+    setSuggestions([]);
+    setInputDisabled(true);
+    const tempMsgId = Date.now().toString();
+
+    // Show loading indicator
+    setMessages([{
+        id: tempMsgId,
         role: 'model',
-        text: '',
+        text: '', // Empty text triggers the "three dots" animation
         timestamp: Date.now(),
-        isStreaming: true
-      }]);
+        isStreaming: true,
+    }]);
 
-      for await (const chunk of stream) {
-        const chunkText = chunk.text();
-        fullResponse += chunkText;
-        setMessages(prev => prev.map(m => 
-          m.id === initialMsgId ? { ...m, text: fullResponse } : m
-        ));
+    try {
+      startChat(lesson, apiKey);
+      const responseStream = sendMessageStream(lesson.initialPrompt);
+      
+      let fullText = '';
+      for await (const chunk of responseStream) {
+        const text = chunk.text;
+        if (text) {
+          fullText += text;
+        }
       }
 
-      // Post-processing
-      const { cleanText, options } = parseContentWithOptions(fullResponse);
-      
-      setMessages(prev => prev.map(m => 
-        m.id === initialMsgId ? { ...m, text: cleanText, isStreaming: false } : m
-      ));
+      const { cleanText, options } = parseContentWithOptions(fullText);
+      const bubbles = splitContentIntoBubbles(cleanText);
+      const suggestionObjects = options.map(opt => ({ label: opt, value: opt }));
 
-      setSuggestions(options.length > 0 ? options : DEFAULT_SUGGESTIONS.map(s => s.value));
-      
+      // Start sequential display, passing the thinking bubble's ID
+      addBubblesSequentially(bubbles, suggestionObjects, tempMsgId);
+
     } catch (error) {
-      console.error(error);
+      console.error("Chat Error:", error);
+      setMessages(prev => prev.filter(p => p.id !== tempMsgId));
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: 'model',
-        text: '😵 哎呀，网络好像有点卡，或者 API Key 额度用完了。请检查网络或在设置里更换 Key。',
+        text: "哎呀，网络好像有点问题，请检查一下你的 API Key 或网络连接 😵",
         timestamp: Date.now()
       }]);
-    } finally {
-      setIsTyping(false);
       setInputDisabled(false);
+      if (error instanceof Error && (error.message.includes('400') || error.message.includes('key'))) {
+          openKeyModal();
+      }
     }
   };
 
   const handleSendMessage = async (text: string) => {
-    if (!text.trim()) return;
-
-    // User Message
     const userMsgId = Date.now().toString();
-    setMessages(prev => [...prev, {
-      id: userMsgId,
-      role: 'user',
-      text: text,
-      timestamp: Date.now()
-    }]);
-
-    setSuggestions([]); // Clear suggestions
+    const newUserMsg: Message = { id: userMsgId, role: 'user', text, timestamp: Date.now() };
+    
+    setMessages(prev => [...prev, newUserMsg]);
     setInputDisabled(true);
-    setIsTyping(true);
+    setSuggestions([]);
 
-    try {
-      const aiMsgId = (Date.now() + 1).toString();
-      setMessages(prev => [...prev, {
-        id: aiMsgId,
-        role: 'model',
-        text: '',
-        timestamp: Date.now(),
-        isStreaming: true
-      }]);
-
-      let fullResponse = "";
-      const stream = sendMessageStream(text);
-
-      for await (const chunk of stream) {
-        const chunkText = chunk.text();
-        fullResponse += chunkText;
-        setMessages(prev => prev.map(m => 
-          m.id === aiMsgId ? { ...m, text: fullResponse } : m
-        ));
-      }
-
-      const { cleanText, options } = parseContentWithOptions(fullResponse);
-
-      setMessages(prev => prev.map(m => 
-        m.id === aiMsgId ? { ...m, text: cleanText, isStreaming: false } : m
-      ));
-
-      setSuggestions(options.length > 0 ? options : DEFAULT_SUGGESTIONS.map(s => s.value));
-      
-      // Mark lesson as completed if conversation gets long enough (simple heuristic)
-      if (currentLesson && messages.length > 6 && !completedLessons.includes(currentLesson.id) && !currentLesson.id.startsWith('custom')) {
-        const newCompleted = [...completedLessons, currentLesson.id];
-        setCompletedLessons(newCompleted);
-        localStorage.setItem(STORAGE_KEYS.COMPLETED_LESSONS, JSON.stringify(newCompleted));
-      }
-
-    } catch (error) {
-      console.error(error);
-       setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        role: 'model',
-        text: '😵 遇到了一点小问题，请重试。',
-        timestamp: Date.now()
-      }]);
-    } finally {
-      setIsTyping(false);
-      setInputDisabled(false);
-    }
+    // Natural delay before showing "thinking" bubble
+    setTimeout(async () => {
+        const tempMsgId = (Date.now() + 1).toString();
+    
+        // Show loading indicator
+        setMessages(prev => [...prev, {
+            id: tempMsgId,
+            role: 'model',
+            text: '',
+            timestamp: Date.now(),
+            isStreaming: true
+        }]);
+    
+        try {
+            const responseStream = sendMessageStream(text);
+            let fullText = '';
+            
+            for await (const chunk of responseStream) {
+                const text = chunk.text;
+                if (text) {
+                    fullText += text;
+                }
+            }
+    
+            const { cleanText, options } = parseContentWithOptions(fullText);
+            const bubbles = splitContentIntoBubbles(cleanText);
+            const suggestionObjects = options.map(opt => ({ label: opt, value: opt }));
+    
+            // Start sequential display, passing the thinking bubble's ID
+            addBubblesSequentially(bubbles, suggestionObjects, tempMsgId);
+    
+        } catch (error) {
+            setMessages(prev => prev.filter(p => p.id !== tempMsgId));
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                role: 'model',
+                text: "老师有点累了（连接错误），请稍后再试或检查 Key 😷",
+                timestamp: Date.now()
+            }]);
+            setInputDisabled(false);
+        }
+    }, 800);
   };
 
-  // --- Render Helpers ---
-
-  const getFilteredLessons = () => {
-    let list = PREDEFINED_LESSONS;
-    if (selectedCategory) {
-      list = list.filter(l => l.category === selectedCategory);
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-    if (view === ViewState.FAVORITES) {
-      list = PREDEFINED_LESSONS.filter(l => favorites.includes(l.id));
-    }
-    return list;
-  };
+  }, [messages, suggestions]);
 
-  // --- Render Views ---
-
-  if (view === ViewState.LANDING) {
-    return (
-      <>
-        <LandingPage onStart={handleStartAdventure} />
-        {showKeyModal && (
-          <ApiKeyModal 
-            onSave={handleSaveKey} 
-            onCancel={() => setShowKeyModal(false)} 
-            canCancel={!!apiKey} 
-            initialKey={apiKey}
-          />
-        )}
-      </>
-    );
-  }
-
-  if (view === ViewState.PROMO) {
-    return <PromoScene onBack={() => setView(ViewState.HOME)} />;
-  }
+  // --- RENDER HELPERS ---
+  
+  const renderHeader = (title: string, subtitle?: string, onBack?: () => void) => (
+    <div className="bg-blue-500 text-white p-4 flex items-center gap-3 border-b-[3px] border-blue-950 shadow-sketchy z-30 relative flex-shrink-0">
+       {onBack ? (
+           <button onClick={onBack} className="p-2 bg-blue-400 border-2 border-blue-950 rounded-lg hover:bg-blue-300 transition-colors active:translate-y-1 shadow-sketchy-sm">
+               <ArrowLeft size={20} strokeWidth={3} />
+           </button>
+       ) : (
+           <div className="p-2 bg-white text-blue-950 border-2 border-blue-950 rounded-lg shadow-sketchy-sm transform -rotate-3">
+               <BookOpen size={20} strokeWidth={3} />
+           </div>
+       )}
+       
+       <div className="flex-1">
+           <h1 className="text-2xl font-black font-hand tracking-wide">{title}</h1>
+           {subtitle && <p className="text-xs font-bold text-blue-100 opacity-90 font-hand">{subtitle}</p>}
+       </div>
+       
+       {!onBack && (
+         <div className="flex items-center gap-2">
+            <button onClick={handleGoToFavorites} className="p-2 bg-yellow-300 border-2 border-blue-950 rounded-lg hover:bg-yellow-200 transition-colors shadow-sketchy-sm">
+                 <Star size={20} strokeWidth={3} className="text-blue-950" />
+             </button>
+            <button onClick={openKeyModal} className="p-2 bg-blue-400 border-2 border-blue-950 rounded-lg hover:bg-blue-300 transition-colors shadow-sketchy-sm">
+                <Key size={20} strokeWidth={3} />
+            </button>
+         </div>
+       )}
+    </div>
+  );
 
   return (
-    // Changed h-screen to h-[100dvh] for mobile browser address bar support
-    <div className="flex flex-col h-[100dvh] bg-blue-500 max-w-md mx-auto shadow-2xl overflow-hidden relative">
-       {/* Global Background Pattern */}
-       <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.15) 2px, transparent 2px)', backgroundSize: '24px 24px' }}></div>
+    // Main Container: Fixed height 100dvh for mobile browsers
+    <div className="h-[100dvh] w-full bg-blue-500 flex flex-col font-sans overflow-hidden relative text-blue-950">
       
-      {/* --- Header --- */}
-      <header className="flex-none bg-blue-500 p-4 flex items-center justify-between z-30 relative shadow-sm">
-        <div className="flex items-center">
-          {view === ViewState.CHAT || view === ViewState.CATEGORY_DETAILS || view === ViewState.FAVORITES ? (
-            <button 
-              onClick={() => {
-                if (view === ViewState.CHAT) {
-                   if (currentLesson?.category === '自定义') setView(ViewState.HOME);
-                   else setView(ViewState.CATEGORY_DETAILS);
-                }
-                else if (view === ViewState.CATEGORY_DETAILS) setView(ViewState.HOME);
-                else setView(ViewState.HOME);
-              }}
-              className="p-2 mr-2 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors"
-            >
-              <ArrowLeft size={20} strokeWidth={3} />
-            </button>
-          ) : (
-            <div className="p-2 mr-2 bg-white text-blue-500 rounded-lg border-2 border-blue-950 shadow-[2px_2px_0px_0px_#172554] transform -rotate-2">
-              <BookOpen size={20} strokeWidth={3} />
-            </div>
-          )}
-          
-          <div>
-            <h1 className="font-black text-xl text-white tracking-wide font-hand leading-none shadow-sm">
-              {view === ViewState.CHAT && currentLesson ? currentLesson.title : 
-               view === ViewState.FAVORITES ? '收藏夹' :
-               view === ViewState.CATEGORY_DETAILS ? selectedCategory : 'Grammar Sensei'}
-            </h1>
-            {view === ViewState.CHAT && currentLesson && (
-               <p className="text-blue-100 text-[10px] font-bold leading-none mt-1">
-                 {currentLesson.subtitle}
-               </p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {view !== ViewState.CHAT && (
-             <button 
-                onClick={() => setShowSettings(true)}
-                className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
-             >
-               <Settings size={24} strokeWidth={2.5} />
-             </button>
-          )}
-          {view === ViewState.CHAT && (
-             <button 
-                onClick={() => {
-                  const sizes: FontSize[] = ['small', 'normal', 'large', 'xl'];
-                  const nextIndex = (sizes.indexOf(fontSize) + 1) % sizes.length;
-                  setFontSize(sizes[nextIndex]);
-                }}
-                className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
-             >
-               <Type size={24} strokeWidth={2.5} />
-             </button>
-          )}
-        </div>
-      </header>
-
-      {/* --- Main Content --- */}
-      {/* Added min-h-0 to ensure flex child scrolls correctly on all browsers */}
-      <main className="flex-1 min-h-0 overflow-hidden relative bg-blue-50 rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.2)] z-20 flex flex-col">
-        
-        {/* Settings Overlay */}
-        {showSettings && (
-          <div className="absolute inset-0 z-50 bg-blue-950/90 backdrop-blur-sm flex flex-col animate-pop-in p-6 overflow-y-auto">
-            <div className="flex justify-between items-center mb-8 flex-shrink-0">
-              <h2 className="text-2xl text-white font-black font-hand">Settings</h2>
-              <button onClick={() => setShowSettings(false)} className="text-white/70 hover:text-white">
-                <X size={32} />
-              </button>
-            </div>
-            
-            <div className="space-y-4 flex-1">
-               <button 
-                  onClick={() => { setShowSettings(false); setView(ViewState.FAVORITES); }}
-                  className="w-full bg-white p-4 rounded-xl flex items-center gap-4 font-bold text-blue-950 border-[3px] border-transparent hover:border-blue-400 active:scale-95 transition-all"
-               >
-                 <div className="p-2 bg-yellow-100 rounded-lg text-yellow-500"><Star size={24} fill="currentColor"/></div>
-                 我的收藏
-               </button>
-
-               <button 
-                  onClick={() => { setShowSettings(false); setView(ViewState.PROMO); }}
-                  className="w-full bg-white p-4 rounded-xl flex items-center gap-4 font-bold text-blue-950 border-[3px] border-transparent hover:border-blue-400 active:scale-95 transition-all"
-               >
-                 <div className="p-2 bg-purple-100 rounded-lg text-purple-500"><Camera size={24} /></div>
-                 宣传图模式
-               </button>
-
-               <button 
-                  onClick={() => { setShowSettings(false); setShowKeyModal(true); }}
-                  className="w-full bg-white p-4 rounded-xl flex items-center gap-4 font-bold text-blue-950 border-[3px] border-transparent hover:border-blue-400 active:scale-95 transition-all"
-               >
-                 <div className="p-2 bg-blue-100 rounded-lg text-blue-500"><Key size={24} /></div>
-                 更换 API Key
-               </button>
-
-               <button 
-                  onClick={handleRemoveKey}
-                  className="w-full bg-red-50 p-4 rounded-xl flex items-center gap-4 font-bold text-red-500 border-[3px] border-transparent hover:border-red-200 active:scale-95 transition-all mt-8"
-               >
-                 <div className="p-2 bg-red-100 rounded-lg"><LogOut size={24} /></div>
-                 退出 / 清除 Key
-               </button>
-            </div>
-            
-            <div className="mt-auto text-center text-white/30 text-xs font-mono pt-8 flex-shrink-0">
-              v1.1.0 • Grammar Sensei
-            </div>
-          </div>
-        )}
-
-        {/* View: HOME */}
-        {view === ViewState.HOME && (
-          <div className="h-full overflow-y-auto p-6 pb-20 overscroll-contain">
-             <div className="mb-6">
-                <h2 className="text-2xl font-black text-blue-950 mb-2 font-hand flex items-center gap-2">
-                  <span className="text-3xl">👋</span> 欢迎回来!
-                </h2>
-                <p className="text-blue-500 font-bold text-sm">今天想攻克哪个难关？</p>
-             </div>
-             
-             {/* Custom Topic Input - Added feature */}
-             <div className="mb-8">
-                <label className="block text-xs font-black text-blue-950 uppercase mb-2 ml-1 flex items-center gap-1">
-                  <Sparkles size={12} className="text-blue-500"/> 自由探索 (Free Style)
-                </label>
-                <div className="relative group">
-                   <input 
-                      type="text"
-                      value={customTopic}
-                      onChange={(e) => setCustomTopic(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleStartCustomLesson()}
-                      placeholder="输入你想学的语法 (例如: 被动态)"
-                      className="w-full bg-white border-[3px] border-blue-950 rounded-2xl py-4 pl-12 pr-14 text-blue-950 font-bold shadow-sketchy transition-all focus:shadow-sketchy-lg focus:-translate-y-1 placeholder-blue-300 outline-none"
-                   />
-                   <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400 group-focus-within:text-blue-500 transition-colors">
-                      <Search size={24} strokeWidth={3} />
-                   </div>
-                   <button 
-                      onClick={handleStartCustomLesson}
-                      disabled={!customTopic.trim()}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 bg-blue-500 text-white rounded-xl border-2 border-blue-950 shadow-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
-                   >
-                      <ArrowRight size={20} strokeWidth={3} />
-                   </button>
-                </div>
-             </div>
-
-             <div className="grid grid-cols-1 gap-4">
-                {LESSON_CATEGORIES.map((cat, idx) => {
-                   const meta = CATEGORY_META[cat];
-                   return (
-                     <div 
-                        key={cat}
-                        onClick={() => { setSelectedCategory(cat); setView(ViewState.CATEGORY_DETAILS); }}
-                        className={`group relative bg-white border-[3px] ${meta.borderColor} rounded-2xl p-5 shadow-sketchy hover:-translate-y-1 hover:shadow-sketchy-lg transition-all cursor-pointer active:translate-y-1 active:shadow-none overflow-hidden`}
-                     >
-                        <div className="flex justify-between items-start mb-3 relative z-10">
-                           <div className={`w-12 h-12 ${meta.iconBg} ${meta.color} rounded-full flex items-center justify-center font-black text-lg border-2 border-blue-950 shadow-sm transform group-hover:rotate-6 transition-transform`}>
-                              {meta.level}
-                           </div>
-                           <div className="bg-blue-50 text-blue-950 text-xs font-bold px-2 py-1 rounded-lg border border-blue-200">
-                              {PREDEFINED_LESSONS.filter(l => l.category === cat).length} 课
-                           </div>
-                        </div>
-                        <h3 className="text-xl font-black text-blue-950 mb-1 relative z-10">{cat}</h3>
-                        <p className="text-sm text-blue-400 font-bold leading-tight relative z-10">{meta.description}</p>
-                        
-                        {/* Decor */}
-                        <div className={`absolute -bottom-6 -right-6 w-24 h-24 ${meta.iconBg} opacity-20 rounded-full group-hover:scale-125 transition-transform`}></div>
-                     </div>
-                   );
-                })}
-             </div>
-          </div>
-        )}
-
-        {/* View: CATEGORY DETAILS & FAVORITES */}
-        {(view === ViewState.CATEGORY_DETAILS || view === ViewState.FAVORITES) && (
-          <div className="h-full overflow-y-auto p-4 pb-20 overscroll-contain">
-             {getFilteredLessons().length === 0 ? (
-               <div className="text-center mt-20 text-blue-300">
-                 <Bookmark size={48} className="mx-auto mb-4 opacity-50" />
-                 <p className="font-bold">这里空空如也</p>
-               </div>
-             ) : (
-               getFilteredLessons().map((lesson, index) => (
-                  <LessonCard 
-                    key={lesson.id} 
-                    lesson={lesson} 
-                    index={index}
-                    isCompleted={completedLessons.includes(lesson.id)}
-                    isFavorite={favorites.includes(lesson.id)}
-                    onClick={handleLessonSelect}
-                    onToggleFavorite={toggleFavorite}
-                  />
-               ))
-             )}
-          </div>
-        )}
-
-        {/* View: CHAT */}
-        {view === ViewState.CHAT && currentLesson && (
-          <div className="flex flex-col h-full">
-             {/* Chat Area */}
-             <div className="flex-1 overflow-y-auto p-4 space-y-4 overscroll-contain">
-                {/* Lesson Header Info */}
-                <div className="flex justify-center mb-4">
-                   <div className="bg-blue-100 text-blue-600 text-xs font-bold px-3 py-1 rounded-full border border-blue-200">
-                      {currentLesson.category} • {currentLesson.duration}
-                   </div>
-                </div>
-
-                {messages.map((msg) => (
-                  <ChatBubble 
-                    key={msg.id} 
-                    message={msg} 
-                    showAvatar={msg.role === 'model'} 
-                    fontSize={fontSize}
-                  />
-                ))}
-                
-                {isTyping && (
-                  <div className="flex justify-start animate-pulse">
-                    <div className="bg-white border-2 border-blue-200 px-4 py-2 rounded-2xl rounded-tl-none text-blue-300 text-sm font-bold">
-                       Sensei 正在思考...
-                    </div>
-                  </div>
-                )}
-                
-                {/* Invisible element to scroll to */}
-                <div ref={messagesEndRef} />
-             </div>
-
-             {/* Input Area */}
-             <ChatInput 
-                onSend={handleSendMessage} 
-                suggestions={suggestions}
-                disabled={inputDisabled}
-             />
-          </div>
-        )}
-      </main>
-      
-      {/* API Key Modal (Global) */}
+      {/* Global API Key Modal */}
       {showKeyModal && (
         <ApiKeyModal 
           onSave={handleSaveKey} 
-          onCancel={() => setShowKeyModal(false)} 
-          canCancel={!!apiKey} // Can cancel if we already have a key (accessed from settings)
-          initialKey={apiKey}
+          initialKey={apiKey} 
+          onCancel={() => setShowKeyModal(false)}
+          canCancel={!!apiKey} // Can only cancel if we already have a key
         />
+      )}
+
+      {/* View: Landing */}
+      {view === ViewState.LANDING && (
+        <LandingPage onStart={handleStart} />
+      )}
+
+      {/* View: Home (Categories + Custom Input) */}
+      {view === ViewState.HOME && (
+        <>
+          {renderHeader("Grammar Sensei", "选择你的冒险")}
+          
+          <main className="flex-1 overflow-y-auto p-4 pb-8 min-h-0 scroll-smooth hide-scrollbar chat-bg-pattern">
+            
+            {/* Custom Topic Input Section */}
+            <div className="mb-8 bg-white p-4 rounded-2xl border-[3px] border-blue-950 shadow-sketchy animate-pop-in">
+               <div className="flex items-center gap-2 mb-3">
+                  <div className="bg-yellow-400 border-2 border-blue-950 p-1.5 rounded-lg shadow-sm transform -rotate-6">
+                     <Sparkles size={18} className="text-blue-950" strokeWidth={3}/>
+                  </div>
+                  <h2 className="font-black text-lg">自由探索</h2>
+               </div>
+               <p className="text-xs font-bold text-blue-500 mb-3">不想按部就班？直接告诉我想学什么！</p>
+               
+               <div className="flex gap-2">
+                  <input 
+                    type="text"
+                    value={customTopic}
+                    onChange={(e) => setCustomTopic(e.target.value)}
+                    placeholder="输入语法点 (例如: 被动语态)..."
+                    className="flex-1 bg-blue-50 border-2 border-blue-950 rounded-xl px-3 py-2 font-bold text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-300 font-hand placeholder-blue-300"
+                    onKeyDown={(e) => e.key === 'Enter' && handleCustomTopicStart()}
+                  />
+                  <button 
+                    onClick={handleCustomTopicStart}
+                    disabled={!customTopic.trim()}
+                    className="bg-blue-500 text-white border-2 border-blue-950 rounded-xl px-4 font-black shadow-sketchy-sm active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    GO
+                  </button>
+               </div>
+            </div>
+
+            {/* Category Grid */}
+            <h2 className="font-black text-blue-950 text-xl mb-4 ml-1 font-hand">课程地图</h2>
+            <div className="grid grid-cols-1 gap-4">
+              {LESSON_CATEGORIES.map((category, index) => {
+                const meta = CATEGORY_META[category];
+                const lessonsCount = PREDEFINED_LESSONS.filter(l => l.category === category).length;
+                const finishedCount = PREDEFINED_LESSONS.filter(l => l.category === category && completedLessons.includes(l.id)).length;
+                const progress = Math.round((finishedCount / lessonsCount) * 100) || 0;
+
+                return (
+                  <div 
+                    key={category}
+                    onClick={() => handleCategorySelect(category)}
+                    className={`relative bg-white border-[3px] border-blue-950 rounded-2xl p-0 overflow-hidden shadow-sketchy cursor-pointer transition-transform hover:-translate-y-1 active:translate-y-[2px] active:shadow-none animate-slide-up`}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <div className="flex items-stretch min-h-[80px]">
+                       {/* Icon Area */}
+                       <div className={`${meta.iconBg} w-24 flex flex-col items-center justify-center border-r-[3px] border-blue-950 p-2`}>
+                           <span className={`text-2xl font-black ${meta.color}`}>{meta.level}</span>
+                           <span className="text-[10px] font-bold bg-white/30 px-2 py-0.5 rounded-full mt-1 text-blue-950 backdrop-blur-sm">
+                              {progress}%
+                           </span>
+                       </div>
+                       
+                       {/* Info Area */}
+                       <div className="flex-1 p-4 flex flex-col justify-center">
+                           <h3 className="text-xl font-black text-blue-950 font-hand">{category}</h3>
+                           <p className="text-xs text-blue-500 font-bold leading-tight mt-1">{meta.description}</p>
+                       </div>
+
+                       {/* Arrow */}
+                       <div className="pr-4 flex items-center justify-center text-blue-300">
+                          <ChevronRight size={24} strokeWidth={3} />
+                       </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </main>
+        </>
+      )}
+
+      {/* View: Favorites List */}
+      {view === ViewState.FAVORITES && (
+        <>
+          {renderHeader("我的收藏", "你最喜欢的课程都在这里", handleBackToHome)}
+          <main className="flex-1 overflow-y-auto p-4 min-h-0 hide-scrollbar chat-bg-pattern">
+            {favorites.length > 0 ? (
+              <div className="space-y-4 pb-6">
+                {PREDEFINED_LESSONS
+                  .filter(lesson => favorites.includes(lesson.id))
+                  .map((lesson, idx) => (
+                    <LessonCard
+                      key={lesson.id}
+                      lesson={lesson}
+                      index={idx}
+                      onClick={() => startLesson(lesson)}
+                      isCompleted={completedLessons.includes(lesson.id)}
+                      isFavorite={true}
+                      onToggleFavorite={handleToggleFavorite}
+                    />
+                  ))
+                }
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-center text-white animate-pop-in">
+                <Star size={48} className="mb-4 opacity-30" strokeWidth={2}/>
+                <h2 className="text-2xl font-black font-hand">空空如也</h2>
+                <p className="text-sm font-bold opacity-80 mt-2">
+                  在课程列表里点击星星 ✨<br/>就可以把课程收藏到这里啦！
+                </p>
+              </div>
+            )}
+          </main>
+        </>
+      )}
+
+      {/* View: Category Details (Lesson List) */}
+      {view === ViewState.CATEGORY_DETAILS && selectedCategory && (
+        <>
+          {renderHeader(selectedCategory, CATEGORY_META[selectedCategory].description, handleBackToHome)}
+          
+          <main className="flex-1 overflow-y-auto p-4 min-h-0 hide-scrollbar chat-bg-pattern">
+            <div className="space-y-4 pb-6">
+                {PREDEFINED_LESSONS.filter(l => l.category === selectedCategory).map((lesson, idx) => (
+                  <LessonCard 
+                    key={lesson.id}
+                    lesson={lesson}
+                    index={idx}
+                    onClick={() => startLesson(lesson)}
+                    isCompleted={completedLessons.includes(lesson.id)}
+                    isFavorite={favorites.includes(lesson.id)}
+                    onToggleFavorite={handleToggleFavorite}
+                  />
+                ))}
+            </div>
+          </main>
+        </>
+      )}
+
+      {/* View: Chat Interface */}
+      {view === ViewState.CHAT && currentLesson && (
+        <>
+           {/* Compact Header for Chat */}
+           <div className="bg-blue-500 text-white px-4 py-3 flex items-center gap-3 border-b-[3px] border-blue-950 shadow-sm z-30 flex-shrink-0">
+               <button onClick={currentLesson.category === 'Custom' ? handleBackToHome : handleBackToCategories} className="p-1.5 bg-blue-400 border-2 border-blue-950 rounded-lg hover:bg-blue-300 active:translate-y-0.5 shadow-sketchy-sm">
+                   <ArrowLeft size={18} strokeWidth={3} />
+               </button>
+               <div className="flex-1 min-w-0">
+                   <h1 className="text-lg font-black truncate font-hand leading-none">{currentLesson.title}</h1>
+                   <p className="text-[10px] font-bold text-blue-200 truncate">{currentLesson.subtitle}</p>
+               </div>
+               <div className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-bold border border-white/30">
+                   {currentLesson.category}
+               </div>
+           </div>
+
+           {/* Chat Area */}
+           <div className="flex-1 overflow-y-auto p-4 scroll-smooth min-h-0 hide-scrollbar chat-bg-pattern">
+              {messages.map((msg, idx) => (
+                <ChatBubble 
+                  key={msg.id} 
+                  message={msg} 
+                  showAvatar={msg.role === 'model' && (!messages[idx-1] || messages[idx-1].role !== 'model')} 
+                  fontSize={'normal'} 
+                />
+              ))}
+              <div ref={chatEndRef} />
+           </div>
+
+           {/* Input Area */}
+           <ChatInput 
+             onSend={handleSendMessage} 
+             suggestions={suggestions}
+             disabled={inputDisabled}
+           />
+        </>
       )}
 
     </div>

@@ -21,14 +21,15 @@
         background-image: radial-gradient(rgba(255, 255, 255, 0.15) 2px, transparent 2px);
         background-size: 32px 32px;
         color: var(--deep-blue);
-        overscroll-behavior-y: none; /* Prevent browser rubber-banding */
         
-        /* Hide scrollbar */
-        ::-webkit-scrollbar {
-          display: none;
-        }
-        -ms-overflow-style: none; 
+        /* Remove default scrollbar for app-like feel */
         scrollbar-width: none; 
+        -ms-overflow-style: none;
+        overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
+      }
+      
+      body::-webkit-scrollbar {
+        display: none;
       }
       
       /* The "Wobbly" Sketchy Border Utility */
@@ -116,6 +117,22 @@
         0% { opacity: 0; transform: scale(1.05); }
         100% { opacity: 1; transform: scale(1); }
       }
+
+      /* Custom scrollbar hiding utility */
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+      }
+      
+      /* New style for chat background */
+      .chat-bg-pattern {
+        background-color: #EFF6FF; /* Tailwind Blue-50 */
+        background-image: radial-gradient(#BFDBFE 1px, transparent 1px); /* Tailwind Blue-200 dots */
+        background-size: 16px 16px;
+      }
     </style>
   <script type="importmap">
 {
@@ -130,8 +147,8 @@
 }
 </script>
 </head>
-  <body class="h-screen h-[100dvh] w-full overflow-hidden antialiased selection:bg-white selection:text-blue-600 touch-none">
-    <div id="root" class="h-full w-full"></div>
+  <body class="antialiased selection:bg-white selection:text-blue-600">
+    <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

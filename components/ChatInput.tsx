@@ -1,10 +1,14 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Mic, Loader2 } from 'lucide-react';
+// FIX: Import SuggestedReply type to handle structured suggestions.
+import { SuggestedReply } from '../types';
 
 interface ChatInputProps {
   onSend: (text: string) => void;
-  suggestions: string[];
+  // FIX: Update suggestions prop to accept an array of SuggestedReply objects.
+  suggestions: SuggestedReply[];
   disabled: boolean;
 }
 
@@ -96,12 +100,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, suggestions, disab
           {suggestions.map((sug, idx) => (
             <button
               key={idx}
-              onClick={() => !disabled && onSend(sug)}
+              // FIX: Send suggestion's value on click, not the whole object.
+              onClick={() => !disabled && onSend(sug.value)}
               disabled={disabled}
               className={`w-full bg-white border-[3px] border-blue-950 hover:bg-blue-50 text-blue-950 px-4 py-3 text-sm font-bold shadow-sketchy-sm transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none text-left flex items-center font-hand rounded-lg transform ${idx % 2 === 0 ? '-rotate-1' : 'rotate-1'}`}
               style={{ animationDelay: `${idx * 50}ms` }}
             >
-               <span className="mr-2 text-lg">👉</span> {sug}
+               {/* FIX: Display suggestion's label as button text. */}
+               <span className="mr-2 text-lg">👉</span> {sug.label}
             </button>
           ))}
         </div>
@@ -114,9 +120,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, suggestions, disab
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isListening ? "正在听..." : (disabled ? "..." : "输入您的问题...")}
+          placeholder={isListening ? "正在听..." : (disabled ? "..." : "输入你的问题...")}
           disabled={disabled}
-          className="flex-1 max-h-[120px] py-3 px-2 bg-transparent border-none focus:ring-0 resize-none text-[16px] placeholder-blue-300 font-bold text-blue-950 font-hand leading-tight"
+          className="flex-1 max-h-[120px] py-2 px-2 bg-transparent border-none focus:ring-0 resize-none text-[16px] placeholder-blue-300 font-bold text-blue-950 font-hand leading-normal hide-scrollbar"
           rows={1}
         />
 
