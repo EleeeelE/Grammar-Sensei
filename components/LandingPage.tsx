@@ -17,7 +17,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
   };
 
   return (
-    <div className="h-full w-full flex flex-col bg-blue-500 relative overflow-hidden font-sans">
+    <div className="h-[100dvh] w-full flex flex-col bg-blue-500 relative overflow-hidden font-sans">
       {/* Background pattern */}
       <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(#60A5FA 2px, transparent 2px)', backgroundSize: '24px 24px', opacity: 0.4 }}></div>
 

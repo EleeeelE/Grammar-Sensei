@@ -30,17 +30,11 @@ const BASE_SYSTEM_INSTRUCTION = `
 `;
 
 let chatSession: Chat | null = null;
-let ai: GoogleGenAI | null = null;
 
-const getAI = () => {
-  if (!ai) {
-    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  }
-  return ai;
-};
+export const startChat = (lesson: Lesson, apiKey: string) => {
+  if (!apiKey) throw new Error("API Key is missing");
 
-export const startChat = (lesson: Lesson) => {
-  const client = getAI();
+  const client = new GoogleGenAI({ apiKey });
   
   const systemInstruction = `${BASE_SYSTEM_INSTRUCTION}
 

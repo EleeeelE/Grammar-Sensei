@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
     <title>Grammar Sensei</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Noto+Sans+SC:wght@400;700;900&family=Patrick+Hand&display=swap" rel="stylesheet">
@@ -21,6 +21,7 @@
         background-image: radial-gradient(rgba(255, 255, 255, 0.15) 2px, transparent 2px);
         background-size: 32px 32px;
         color: var(--deep-blue);
+        overscroll-behavior-y: none; /* Prevent browser rubber-banding */
         
         /* Hide scrollbar */
         ::-webkit-scrollbar {
@@ -81,8 +82,16 @@
         50% { transform: translateY(-10px); }
         100% { transform: translateY(0px); }
       }
+      @keyframes float-reverse {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(10px); }
+        100% { transform: translateY(0px); }
+      }
       .animate-float {
         animation: float 4s ease-in-out infinite;
+      }
+      .animate-float-reverse {
+        animation: float-reverse 5s ease-in-out infinite;
       }
       .animate-float-delayed {
         animation: float 5s ease-in-out infinite;
@@ -121,8 +130,8 @@
 }
 </script>
 </head>
-  <body class="h-screen overflow-hidden antialiased selection:bg-white selection:text-blue-600">
-    <div id="root"></div>
+  <body class="h-screen h-[100dvh] w-full overflow-hidden antialiased selection:bg-white selection:text-blue-600 touch-none">
+    <div id="root" class="h-full w-full"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
