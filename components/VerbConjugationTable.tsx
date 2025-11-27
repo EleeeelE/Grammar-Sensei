@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { ArrowLeft, Info, Dumbbell, Zap, BookOpen, X, Send } from 'lucide-react';
 import { Lesson } from '../types';
@@ -105,8 +107,8 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
                   className="bg-white border-[3px] border-blue-950 rounded-2xl p-5 shadow-sketchy cursor-pointer hover:-translate-y-1 hover:shadow-sketchy-lg transition-all group flex flex-col"
                   onClick={startExtremeContext}
                 >
-                  <div className="w-12 h-12 bg-blue-200 border-2 border-blue-950 rounded-full flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
-                    <Zap size={24} className="text-blue-950" strokeWidth={3} />
+                  <div className="w-12 h-12 bg-blue-500 border-2 border-blue-950 rounded-full flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
+                    <Zap size={24} className="text-white" strokeWidth={3} />
                   </div>
                   <h4 className="font-black text-xl text-blue-950 mb-2">极端语境训练</h4>
                   <p className="text-sm font-bold text-blue-400 mb-4 flex-1">
@@ -121,12 +123,12 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
                 <div 
                   className="bg-white border-[3px] border-blue-950 rounded-2xl p-5 shadow-sketchy group flex flex-col"
                 >
-                  <div className="w-12 h-12 bg-blue-200 border-2 border-blue-950 rounded-full flex items-center justify-center mb-4 shadow-sm">
-                    <BookOpen size={24} className="text-blue-950" strokeWidth={3} />
+                  <div className="w-12 h-12 bg-blue-500 border-2 border-blue-950 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                    <BookOpen size={24} className="text-white" strokeWidth={3} />
                   </div>
                   <h4 className="font-black text-xl text-blue-950 mb-2">动词物语</h4>
                   <p className="text-sm font-bold text-blue-400 mb-4">
-                    输入一个场景，Sensei 将为你生成一个仅使用【{activeForm}】连接句子的微型故事。
+                    输入一个场景，Sensei 将为你生成一个使用【{activeForm}】连接句子的微型故事。
                   </p>
                   
                   <div className="mt-auto">
@@ -172,9 +174,9 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
       {/* Main Content */}
       <main className="flex-1 overflow-auto p-4 hide-scrollbar chat-bg-pattern">
         
-        {/* Table Container */}
-        <div className="bg-white border-[3px] border-blue-950 rounded-2xl shadow-sketchy overflow-hidden font-hand mb-6">
-          <div className="overflow-x-auto">
+        {/* Table Container - Optimized for Scrolling */}
+        <div className="bg-white border-[3px] border-blue-950 rounded-2xl shadow-sketchy font-hand mb-6 relative z-0">
+          <div className="overflow-x-auto w-full touch-pan-x rounded-[13px] pb-1">
             <table className="w-full min-w-[800px] border-collapse text-sm">
               <thead>
                 <tr className="bg-blue-100 border-b-[3px] border-blue-950 text-blue-950">
@@ -191,7 +193,7 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
                 
                 {/* Basic Form */}
                 <tr className="border-b-2 border-blue-200 hover:bg-blue-50">
-                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap">
+                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap z-10">
                     基本形
                     <PracticeButton onClick={() => openPracticeModal('基本形')} />
                   </td>
@@ -207,7 +209,7 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
 
                 {/* Masu Form */}
                 <tr className="border-b-2 border-blue-200 hover:bg-blue-50">
-                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap">
+                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap z-10">
                     ます形
                     <PracticeButton onClick={() => openPracticeModal('ます形')} />
                   </td>
@@ -221,7 +223,7 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
 
                 {/* Te Form - Complex */}
                 <tr className="border-b-2 border-blue-200 hover:bg-blue-50">
-                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap">
+                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap z-10">
                     て形
                     <PracticeButton onClick={() => openPracticeModal('て形')} />
                   </td>
@@ -255,7 +257,7 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
 
                 {/* Nai Form */}
                 <tr className="border-b-2 border-blue-200 hover:bg-blue-50">
-                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap">
+                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap z-10">
                     ない形
                     <PracticeButton onClick={() => openPracticeModal('ない形')} />
                   </td>
@@ -272,7 +274,7 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
 
                 {/* Ta Form - Complex */}
                 <tr className="border-b-2 border-blue-200 hover:bg-blue-50">
-                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap">
+                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap z-10">
                     た形
                     <PracticeButton onClick={() => openPracticeModal('た形')} />
                   </td>
@@ -306,7 +308,7 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
 
                 {/* Imperative Form */}
                 <tr className="border-b-2 border-blue-200 hover:bg-blue-50">
-                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap">
+                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap z-10">
                     命令形
                     <PracticeButton onClick={() => openPracticeModal('命令形')} />
                   </td>
@@ -320,7 +322,7 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
 
                  {/* Volitional Form */}
                 <tr className="border-b-2 border-blue-200 hover:bg-blue-50">
-                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap">
+                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap z-10">
                     意志形
                     <PracticeButton onClick={() => openPracticeModal('意志形')} />
                   </td>
@@ -334,7 +336,7 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
 
                 {/* Ba Form */}
                 <tr className="border-b-2 border-blue-200 hover:bg-blue-50">
-                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap">
+                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap z-10">
                     ば形
                     <PracticeButton onClick={() => openPracticeModal('ば形')} />
                   </td>
@@ -348,7 +350,7 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
 
                 {/* Potential Form */}
                 <tr className="border-b-2 border-blue-200 hover:bg-blue-50">
-                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap">
+                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap z-10">
                     可能形
                     <PracticeButton onClick={() => openPracticeModal('可能形')} />
                   </td>
@@ -362,7 +364,7 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
 
                 {/* Passive Form */}
                 <tr className="border-b-2 border-blue-200 hover:bg-blue-50">
-                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap">
+                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap z-10">
                     被动形
                     <PracticeButton onClick={() => openPracticeModal('被动形')} />
                   </td>
@@ -376,7 +378,7 @@ export const VerbConjugationTable: React.FC<VerbConjugationTableProps> = ({ onBa
 
                  {/* Causative Form */}
                  <tr className="hover:bg-blue-50">
-                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap">
+                  <td className="p-3 border-r-2 border-blue-950 font-black sticky left-0 bg-white group whitespace-nowrap z-10">
                     使役形
                     <PracticeButton onClick={() => openPracticeModal('使役形')} />
                   </td>

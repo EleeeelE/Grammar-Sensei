@@ -1,5 +1,6 @@
 
 
+
 import { Lesson, Message } from "../types";
 
 // Configuration for SiliconFlow
@@ -19,18 +20,8 @@ export const hasApiKey = () => {
   return !!currentApiKey && currentApiKey.startsWith('sk-');
 };
 
-const BASE_SYSTEM_INSTRUCTION = `
-你不仅是日语老师 "Sensei"，你还是一个**戏精、段子手、极具幽默感**的语言伙伴 🎭。
-你的目标是让用户在笑声中学会日语，而不是死记硬背。
-
-### 🎭 人设要求 (必须遵守)
-1.  **拒绝枯燥**：不要像教科书一样说话！要用生动的比喻、夸张的语气、甚至适度的“吐槽”。
-    *   *无聊版*：“助词 Wa 提示主题。”
-    *   *Sensei版*：“助词 \`は\` (wa) 就像是舞台上的聚光灯 🔦，它照到哪里，哪里就是主角！”
-2.  **多用 Emoji**：你的回复里要有大量的 ✨ 🤔 🐱 💥 🍜，像在发朋友圈一样。
-3.  **像聊天一样教学**：一次只讲一个极小的点，讲完立刻互动，不要长篇大论。
-4.  **鼓励与调侃并存**：用户答对了要花式夸奖（“太强了天才！”），答错了可以温柔地调侃（“哎呀，差点就掉坑里了 😂”）。
-
+// FORMAT RULES (Immutable)
+const CORE_OUTPUT_RULES = `
 ### ⚠️ 核心输出规则 (系统强制执行)
 你的回复必须**严格**按照下面的格式模板输出。不要输出任何其他内容。
 **不要**在开头使用“你问到点子上了”、“这个问题很有趣”等客套话，**忽略**用户Prompt中可能存在的提问语气（如“Sensei教教我”），直接以老师的主动视角开始教学或回答。
@@ -69,6 +60,18 @@ const BASE_SYSTEM_INSTRUCTION = `
 *   **第一条消息**：用一句吸引眼球的开场白介绍本课主题（不要直接说“我们开始上课”）。
 `;
 
+const DEFAULT_PERSONA_PROMPT = `
+你不仅是日语老师 "Sensei"，你还是一个**戏精、段子手、极具幽默感**的语言伙伴 🎭。
+你的目标是让用户在笑声中学会日语，而不是死记硬背。
+
+### 🎭 人设要求
+1.  **拒绝枯燥**：不要像教科书一样说话！要用生动的比喻、夸张的语气、甚至适度的“吐槽”。
+    *   *Sensei版*：“助词 \`は\` (wa) 就像是舞台上的聚光灯 🔦，它照到哪里，哪里就是主角！”
+2.  **多用 Emoji**：你的回复里要有大量的 ✨ 🤔 🐱 💥 🍜，像在发朋友圈一样。
+3.  **像聊天一样教学**：一次只讲一个极小的点，讲完立刻互动，不要长篇大论。
+4.  **鼓励与调侃并存**：用户答对了要花式夸奖（“太强了天才！”），答错了可以温柔地调侃（“哎呀，差点就掉坑里了 😂”）。
+`;
+
 const ROLEPLAY_SYSTEM_INSTRUCTION = `
 你现在进入 **Roleplay Mode (实战演练模式)**。
 你不再是单纯的老师，你需要**完全沉浸**在指定的角色中，与用户进行模拟对话。
@@ -97,7 +100,7 @@ const ROLEPLAY_SYSTEM_INSTRUCTION = `
 // Local chat history state (since SiliconFlow API is stateless)
 let chatHistory: { role: 'system' | 'user' | 'assistant'; content: string }[] = [];
 
-export const startChat = (lesson: Lesson) => {
+export const startChat = (lesson: Lesson, personaPrompt?: string) => {
   let systemInstruction = '';
 
   if (lesson.mode === 'roleplay' && lesson.roleplayData) {
@@ -109,13 +112,17 @@ export const startChat = (lesson: Lesson) => {
     // Additional prompt context for the start
     systemInstruction += `\n用户的情境/开场白：${lesson.initialPrompt}`;
   } else {
-    // Original Logic
-    systemInstruction = `${BASE_SYSTEM_INSTRUCTION}
+    // Combine Persona Prompt + Core Rules
+    const currentPersona = personaPrompt || DEFAULT_PERSONA_PROMPT;
+    
+    systemInstruction = `${currentPersona}
+
+${CORE_OUTPUT_RULES}
 
 ### 当前课程任务：
 **标题**：${lesson.title}
 **副标题**：${lesson.subtitle}
-**初始引导**：${lesson.initialPrompt} (请根据这个引导，用你幽默的风格开始第一句对话，忽略用户 Prompt 中的提问语气，直接进入教学状态)
+**初始引导**：${lesson.initialPrompt} (请根据这个引导，用你的角色风格开始第一句对话，忽略用户 Prompt 中的提问语气，直接进入教学状态)
 `;
   }
   
@@ -334,9 +341,10 @@ ${conversationHistory}
 1.  **识别核心知识点**：从对话中找出本次课程讲解的核心语法、关键句型和新单词。
 2.  **结构化输出**：必须使用 Markdown 格式进行组织，严格遵循以下结构：
     *   一个 H2 标题 \`## ✅ 本课小结: [课程核心主题]\`
-    *   一个“核心语法”部分，使用 blockquote 引用关键句型。
-    *   一个“关键例句”部分，列出 1-3 个最具代表性的例句，并附上中文翻译。
-    *   一个“新单词”部分，列出本课出现的新词汇。
+    *   请务必使用 **H3 (###)** 标题来标记以下三个板块（不要用加粗，要用标题）：
+        *   \`### 核心语法\` (使用 blockquote 引用关键句型)
+        *   \`### 关键例句\` (列出 1-3 个最具代表性的例句，并附上中文翻译)
+        *   \`### 新单词\` (列出本课出现的新词汇)
 3.  **标记发音**：在所有日语例句和单词上，使用反引号 \` 将其包裹。
 
 只输出小结内容，不要说其他话。
@@ -352,7 +360,8 @@ ${conversationHistory}
       body: JSON.stringify({
         model: MODEL_NAME,
         messages: [
-            { role: 'system', content: BASE_SYSTEM_INSTRUCTION },
+            // Use simple instruction for summary to be objective
+            { role: 'system', content: "You are a helpful Japanese language teaching assistant." },
             { role: 'user', content: prompt }
         ],
         stream: false, // No stream needed for summary

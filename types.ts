@@ -1,5 +1,4 @@
 
-
 export interface Message {
   id: string;
   role: 'user' | 'model';
@@ -39,6 +38,8 @@ export interface NotebookEntry {
 
 export type FontSize = 'small' | 'normal' | 'large' | 'xl';
 
+export type TeacherPersona = 'default' | 'toxic' | 'serious' | 'anime' | 'warm' | 'lazy' | 'roleplayer' | 'kansai';
+
 export enum ViewState {
   LANDING = 'LANDING',
   HOME = 'HOME',
@@ -47,5 +48,6 @@ export enum ViewState {
   FAVORITES = 'FAVORITES',
   PROMO = 'PROMO',
   NOTEBOOK = 'NOTEBOOK',
-  VERB_TABLE = 'VERB_TABLE'
+  VERB_TABLE = 'VERB_TABLE',
+  KEIGO_TABLE = 'KEIGO_TABLE'
 }

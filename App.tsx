@@ -1,6 +1,9 @@
+
+
+
 import React, { useState, useRef, useEffect } from 'react';
-import { ViewState, Message, Lesson, SuggestedReply, FontSize, NotebookEntry } from './types';
-import { PREDEFINED_LESSONS, DEFAULT_SUGGESTIONS, LESSON_CATEGORIES, CATEGORY_META, ROLEPLAY_SCENARIOS } from './constants';
+import { ViewState, Message, Lesson, SuggestedReply, FontSize, NotebookEntry, TeacherPersona } from './types';
+import { PREDEFINED_LESSONS, DEFAULT_SUGGESTIONS, LESSON_CATEGORIES, CATEGORY_META, TEACHER_PERSONAS } from './constants';
 import { startChat, sendMessageStream, parseContentWithOptions, generateSummary, setApiKey, explainText } from './services/geminiService';
 import { setSoundEnabled as setAudioSoundEnabled, setBgmEnabled as setAudioBgmEnabled, setBgmVolume as setAudioBgmVolume, playClick } from './services/audioService';
 import { LessonCard } from './components/LessonCard';
@@ -16,7 +19,8 @@ import { SessionNotes } from './components/SessionNotes';
 import { FlyingStar } from './components/FlyingStar';
 import { ExplanationPanel } from './components/ExplanationPanel';
 import { VerbConjugationTable } from './components/VerbConjugationTable';
-import { BookOpen, ChevronRight, ArrowLeft, Star, Sparkles, Settings as SettingsIcon, Book, Search, X, Hash, ArrowRight as ArrowIcon, Swords, MapPin, Table } from 'lucide-react';
+import { KeigoTable } from './components/KeigoTable';
+import { BookOpen, ChevronRight, ArrowLeft, Star, Sparkles, Settings as SettingsIcon, Book, Search, X, Hash, ArrowRight as ArrowIcon, Table, Crown } from 'lucide-react';
 
 // Helper function to split text into natural chat bubbles
 const splitContentIntoBubbles = (text: string): string[] => {
@@ -69,6 +73,7 @@ export const App: React.FC = () => {
   const [fontSize, setFontSize] = useState<FontSize>('normal');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [ttsSpeed, setTtsSpeed] = useState(0.8); // Default to slower speed
+  const [persona, setPersona] = useState<TeacherPersona>('default'); // Default Persona
   
   // BGM State
   const [bgmEnabled, setBgmEnabled] = useState(false);
@@ -169,6 +174,11 @@ export const App: React.FC = () => {
     const savedTtsSpeed = localStorage.getItem('ttsSpeed');
     if (savedTtsSpeed) setTtsSpeed(parseFloat(savedTtsSpeed));
 
+    const savedPersona = localStorage.getItem('teacherPersona');
+    if (savedPersona && TEACHER_PERSONAS[savedPersona as TeacherPersona]) {
+        setPersona(savedPersona as TeacherPersona);
+    }
+
     // Initialize API Key
     const envKey = process.env.API_KEY;
     if (envKey && envKey.startsWith('sk-')) {
@@ -208,6 +218,10 @@ export const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('ttsSpeed', String(ttsSpeed));
   }, [ttsSpeed]);
+
+  useEffect(() => {
+    localStorage.setItem('teacherPersona', persona);
+  }, [persona]);
 
   useEffect(() => {
     if (
@@ -265,6 +279,11 @@ export const App: React.FC = () => {
         setView(ViewState.VERB_TABLE);
         setCurrentLesson(null);
         setMessages([]);
+    } else if (currentLesson?.category === 'Keigo Training') {
+        playClick();
+        setView(ViewState.KEIGO_TABLE);
+        setCurrentLesson(null);
+        setMessages([]);
     } else if (currentLesson?.category === 'Custom' || currentLesson?.mode === 'roleplay') {
         handleBackToHome();
     } else {
@@ -285,6 +304,11 @@ export const App: React.FC = () => {
   const handleGoToVerbTable = () => {
       playClick();
       setView(ViewState.VERB_TABLE);
+  }
+
+  const handleGoToKeigoTable = () => {
+      playClick();
+      setView(ViewState.KEIGO_TABLE);
   }
 
   const handleCustomTopicStart = async () => {
@@ -380,7 +404,9 @@ export const App: React.FC = () => {
     }]);
 
     try {
-      startChat(lesson);
+      // Pass the selected persona prompt to the chat start
+      const currentPersonaPrompt = TEACHER_PERSONAS[persona].prompt;
+      startChat(lesson, currentPersonaPrompt);
       const responseStream = sendMessageStream(lesson.initialPrompt);
       
       let fullText = '';
@@ -393,7 +419,8 @@ export const App: React.FC = () => {
 
       const { cleanText, options } = parseContentWithOptions(fullText);
       const bubbles = splitContentIntoBubbles(cleanText);
-      const suggestionObjects = options.map(opt => ({ label: opt, value: opt }));
+      // GUARANTEE: Slice options to max 3 to prevent UI overflow
+      const suggestionObjects = options.slice(0, 3).map(opt => ({ label: opt, value: opt }));
 
       await addBubblesSequentially(bubbles, tempMsgId);
       
@@ -455,7 +482,8 @@ export const App: React.FC = () => {
     
             const { cleanText, options } = parseContentWithOptions(fullText);
             const bubbles = splitContentIntoBubbles(cleanText);
-            const suggestionObjects = options.map(opt => ({ label: opt, value: opt }));
+            // GUARANTEE: Slice options to max 3 to prevent UI overflow
+            const suggestionObjects = options.slice(0, 3).map(opt => ({ label: opt, value: opt }));
 
             await addBubblesSequentially(bubbles, tempMsgId);
             
@@ -666,6 +694,8 @@ export const App: React.FC = () => {
         setBgmVolume={setBgmVolume}
         ttsSpeed={ttsSpeed}
         setTtsSpeed={setTtsSpeed}
+        persona={persona}
+        setPersona={setPersona}
       />
 
       {/* API Key Modal */}
@@ -745,84 +775,69 @@ export const App: React.FC = () => {
                 </div>
             ) : (
                 <>
-                    {/* --- ROLEPLAY DOJO SECTION --- */}
-                    <div className="mb-6 animate-pop-in">
-                       <div className="flex items-center gap-2 mb-3">
-                            <div className="bg-purple-500 text-white border-2 border-blue-950 p-1.5 rounded-lg shadow-sm transform rotate-3">
-                                <Swords size={18} strokeWidth={3}/>
+                    {/* --- Free Exploration (Full Width) --- */}
+                    <div className="mb-4 bg-white p-4 rounded-2xl border-[3px] border-blue-950 shadow-sketchy animate-pop-in">
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="bg-blue-100 border-2 border-blue-950 p-1.5 rounded-lg shadow-sm transform -rotate-6">
+                                <Sparkles size={18} className="text-blue-600" strokeWidth={3}/>
                             </div>
-                            <h2 className="font-black text-lg text-blue-950">实战演练 Dojo</h2>
+                            <h2 className="font-black text-lg">自由探索</h2>
                         </div>
+                        <p className="text-xs font-bold text-blue-500 mb-3">想学什么你说了算！</p>
                         
-                        {/* Horizontal Scroller */}
-                        <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar snap-x snap-mandatory">
-                           {ROLEPLAY_SCENARIOS.map((scenario) => (
-                             <div 
-                               key={scenario.id}
-                               onClick={() => startLesson(scenario)}
-                               className="snap-center flex-shrink-0 w-64 bg-white border-[3px] border-blue-950 rounded-2xl p-4 shadow-sketchy cursor-pointer active:scale-95 transition-transform"
-                             >
-                                <div className="flex justify-between items-start mb-2">
-                                  <div className="bg-purple-100 text-purple-600 px-2 py-0.5 rounded text-[10px] font-black border border-purple-200">
-                                    Roleplay
-                                  </div>
-                                  <MapPin size={16} className="text-purple-300" />
-                                </div>
-                                <h3 className="font-black text-lg text-blue-950 leading-tight mb-1">{scenario.title}</h3>
-                                <p className="text-xs font-bold text-purple-400 mb-3">{scenario.subtitle}</p>
-                                <div className="text-[10px] text-gray-500 font-bold bg-gray-50 p-2 rounded-lg border border-gray-100">
-                                  扮演: {scenario.roleplayData?.role}
-                                </div>
-                             </div>
-                           ))}
+                        <div className="flex gap-2">
+                            <input 
+                                type="text"
+                                value={customTopic}
+                                onChange={(e) => setCustomTopic(e.target.value)}
+                                placeholder="输入话题..."
+                                className="flex-1 bg-blue-50 border-2 border-blue-950 rounded-xl px-3 py-2 font-bold text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-300 font-hand placeholder-blue-300 min-w-0"
+                                onKeyDown={(e) => e.key === 'Enter' && handleCustomTopicStart()}
+                            />
+                            <button 
+                                onClick={handleCustomTopicStart}
+                                disabled={!customTopic.trim()}
+                                className="bg-blue-500 text-white border-2 border-blue-950 rounded-xl px-3 font-black shadow-sketchy-sm active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                GO
+                            </button>
                         </div>
                     </div>
 
-                    {/* --- Free Exploration & Verb Table --- */}
-                    <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-pop-in">
-                        {/* Free Exploration Card */}
-                        <div className="bg-white p-4 rounded-2xl border-[3px] border-blue-950 shadow-sketchy">
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className="bg-yellow-400 border-2 border-blue-950 p-1.5 rounded-lg shadow-sm transform -rotate-6">
-                                    <Sparkles size={18} className="text-blue-950" strokeWidth={3}/>
-                                </div>
-                                <h2 className="font-black text-lg">自由探索</h2>
-                            </div>
-                            <p className="text-xs font-bold text-blue-500 mb-3">想学什么你说了算！</p>
-                            
-                            <div className="flex gap-2">
-                                <input 
-                                    type="text"
-                                    value={customTopic}
-                                    onChange={(e) => setCustomTopic(e.target.value)}
-                                    placeholder="输入话题..."
-                                    className="flex-1 bg-blue-50 border-2 border-blue-950 rounded-xl px-3 py-2 font-bold text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-300 font-hand placeholder-blue-300 min-w-0"
-                                    onKeyDown={(e) => e.key === 'Enter' && handleCustomTopicStart()}
-                                />
-                                <button 
-                                    onClick={handleCustomTopicStart}
-                                    disabled={!customTopic.trim()}
-                                    className="bg-blue-500 text-white border-2 border-blue-950 rounded-xl px-3 font-black shadow-sketchy-sm active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    GO
-                                </button>
-                            </div>
-                        </div>
-
-                         {/* Verb Table Card */}
-                         <div 
-                             onClick={handleGoToVerbTable}
-                             className="bg-white p-4 rounded-2xl border-[3px] border-blue-950 shadow-sketchy cursor-pointer active:scale-95 transition-transform flex flex-col justify-between"
-                         >
+                    {/* --- Tables Grid (Side by Side) --- */}
+                    <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-pop-in" style={{ animationDelay: '100ms' }}>
+                        
+                        {/* Verb Table Card */}
+                        <div 
+                            onClick={handleGoToVerbTable}
+                            className="bg-white p-4 rounded-2xl border-[3px] border-blue-950 shadow-sketchy cursor-pointer active:scale-95 transition-transform flex flex-col justify-between"
+                        >
                             <div className="flex items-center gap-2 mb-2">
-                                <div className="bg-green-400 border-2 border-blue-950 p-1.5 rounded-lg shadow-sm transform rotate-3">
-                                    <Table size={18} className="text-blue-950" strokeWidth={3}/>
+                                <div className="bg-blue-200 border-2 border-blue-950 p-1.5 rounded-lg shadow-sm transform rotate-3">
+                                    <Table size={18} className="text-blue-700" strokeWidth={3}/>
                                 </div>
                                 <h2 className="font-black text-lg">动词变形表</h2>
                             </div>
                             <p className="text-xs font-bold text-blue-500 mb-2">一表通关！包含五段、一段、不规则动词的所有常用变形。</p>
                             <div className="flex justify-end">
                                 <span className="text-[10px] font-black bg-blue-50 text-blue-400 px-2 py-1 rounded-lg border border-blue-100">Cheat Sheet</span>
+                            </div>
+                        </div>
+
+                        {/* Keigo Table Card (Updated to Sky Blue) */}
+                        <div 
+                             onClick={handleGoToKeigoTable}
+                             className="bg-white p-4 rounded-2xl border-[3px] border-blue-950 shadow-sketchy cursor-pointer active:scale-95 transition-transform flex flex-col justify-between"
+                         >
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="bg-sky-200 border-2 border-blue-950 p-1.5 rounded-lg shadow-sm transform -rotate-2">
+                                    <Crown size={18} className="text-sky-700" strokeWidth={3}/>
+                                </div>
+                                <h2 className="font-black text-lg">日语敬语表</h2>
+                            </div>
+                            <p className="text-xs font-bold text-blue-500 mb-2">一表搞定！尊敬语、谦让语、丁宁语的规则与特殊变化。</p>
+                            <div className="flex justify-end">
+                                <span className="text-[10px] font-black bg-sky-50 text-sky-500 px-2 py-1 rounded-lg border border-sky-100">Cheat Sheet</span>
                             </div>
                         </div>
                     </div>
@@ -871,6 +886,10 @@ export const App: React.FC = () => {
 
       {view === ViewState.VERB_TABLE && (
          <VerbConjugationTable onBack={handleBackToHome} onStartLesson={startLesson} />
+      )}
+      
+      {view === ViewState.KEIGO_TABLE && (
+         <KeigoTable onBack={handleBackToHome} onStartLesson={startLesson} />
       )}
 
       {view === ViewState.FAVORITES && (
@@ -1020,17 +1039,25 @@ export const App: React.FC = () => {
            <main className="flex-1 overflow-y-auto p-4 min-h-0 hide-scrollbar chat-bg-pattern flex flex-col">
                 <div className="flex-1">
                     {messages.map((msg, index) => (
-                        <ChatBubble 
-                            key={msg.id} 
-                            message={msg} 
-                            showAvatar={msg.role === 'model'}
-                            fontSize={fontSize}
-                            collectedSentences={notebook.map(n => n.text)}
-                            onToggleCollect={handleToggleNotebookEntry}
-                            ttsSpeed={ttsSpeed}
-                            onExplain={handleExplain}
-                            onCollectAnim={handleCollectAnimation}
-                        />
+                        msg.type === 'summary' ? (
+                            <SummaryCard 
+                                key={msg.id} 
+                                message={msg} 
+                                ttsSpeed={ttsSpeed} 
+                            />
+                        ) : (
+                            <ChatBubble 
+                                key={msg.id} 
+                                message={msg} 
+                                showAvatar={msg.role === 'model'}
+                                fontSize={fontSize}
+                                collectedSentences={notebook.map(n => n.text)}
+                                onToggleCollect={handleToggleNotebookEntry}
+                                ttsSpeed={ttsSpeed}
+                                onExplain={handleExplain}
+                                onCollectAnim={handleCollectAnimation}
+                            />
+                        )
                     ))}
                     <div ref={chatEndRef} />
                 </div>

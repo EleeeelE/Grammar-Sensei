@@ -1,7 +1,10 @@
 
+
+
 import React from 'react';
-import { X, Type, Volume2, Music, RefreshCw, Gauge } from 'lucide-react';
-import { FontSize } from '../types';
+import { X, Type, Volume2, Music, RefreshCw, Gauge, Smile } from 'lucide-react';
+import { FontSize, TeacherPersona } from '../types';
+import { TEACHER_PERSONAS } from '../constants';
 import { playClick, shuffleBgm } from '../services/audioService';
 
 interface SettingsModalProps {
@@ -17,6 +20,8 @@ interface SettingsModalProps {
   setBgmVolume: (vol: number) => void;
   ttsSpeed: number;
   setTtsSpeed: (speed: number) => void;
+  persona: TeacherPersona;
+  setPersona: (persona: TeacherPersona) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -31,7 +36,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   bgmVolume,
   setBgmVolume,
   ttsSpeed,
-  setTtsSpeed
+  setTtsSpeed,
+  persona,
+  setPersona
 }) => {
   if (!isOpen) return null;
 
@@ -72,10 +79,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       ></div>
 
       {/* Modal Content */}
-      <div className="bg-white w-full max-w-sm rounded-3xl border-[3px] border-blue-950 shadow-sketchy-lg relative overflow-hidden animate-pop-in z-50 font-hand">
+      <div className="bg-white w-full max-w-sm rounded-3xl border-[3px] border-blue-950 shadow-sketchy-lg relative overflow-hidden animate-pop-in z-50 font-hand max-h-[90vh] flex flex-col">
         
         {/* Header */}
-        <div className="bg-blue-500 p-4 border-b-[3px] border-blue-950 flex justify-between items-center">
+        <div className="bg-blue-500 p-4 border-b-[3px] border-blue-950 flex justify-between items-center shrink-0">
             <h2 className="text-xl font-black text-white tracking-wide">设置 / Settings</h2>
             <button 
                 onClick={handleClose}
@@ -85,8 +92,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto hide-scrollbar">
             
+            {/* Persona Section (New) */}
+            <div>
+                <div className="flex items-center gap-2 mb-3 text-blue-950">
+                    <Smile size={20} strokeWidth={2.5} />
+                    <span className="font-black text-lg">老师风格 (Persona)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    {Object.entries(TEACHER_PERSONAS).map(([key, config]) => {
+                        const isSelected = persona === key;
+                        return (
+                            <button
+                                key={key}
+                                onClick={() => { playClick(); setPersona(key as TeacherPersona); }}
+                                className={`p-2 rounded-xl border-2 transition-all flex flex-col items-center text-center
+                                    ${isSelected
+                                        ? 'bg-blue-100 border-blue-500 shadow-sketchy-sm'
+                                        : 'bg-white border-blue-100 hover:border-blue-300'
+                                    }
+                                `}
+                            >
+                                <span className="text-2xl mb-1">{config.emoji}</span>
+                                <span className={`text-sm font-black ${isSelected ? 'text-blue-600' : 'text-blue-950'}`}>
+                                    {config.label}
+                                </span>
+                                <span className="text-[10px] text-blue-400 font-bold leading-tight mt-1 opacity-80">
+                                    {config.description}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t-2 border-dashed border-blue-100"></div>
+
             {/* Font Size Section */}
             <div>
                 <div className="flex items-center gap-2 mb-3 text-blue-950">
@@ -201,7 +244,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="bg-blue-50 p-4 border-t-[3px] border-blue-950 text-center">
+        <div className="bg-blue-50 p-4 border-t-[3px] border-blue-950 text-center shrink-0">
             <p className="text-xs font-bold text-blue-300">Grammar Sensei v1.7 • Chill Beats 🎵</p>
         </div>
 
