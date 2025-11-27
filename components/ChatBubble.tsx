@@ -8,9 +8,14 @@ interface ChatBubbleProps {
   message: Message;
   showAvatar: boolean;
   fontSize: FontSize;
+  collectedSentences?: string[];
+  onToggleCollect?: (text: string) => void;
+  ttsSpeed: number;
+  onExplain?: (text: string) => void;
+  onCollectAnim?: (startX: number, startY: number) => void;
 }
 
-export const ChatBubble: React.FC<ChatBubbleProps> = ({ message, showAvatar, fontSize }) => {
+export const ChatBubble: React.FC<ChatBubbleProps> = ({ message, showAvatar, fontSize, collectedSentences, onToggleCollect, ttsSpeed, onExplain, onCollectAnim }) => {
   const isUser = message.role === 'user';
 
   // Handle the initial "Thinking" state with a three-dots animation
@@ -99,7 +104,14 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ message, showAvatar, fon
             {isUser ? (
             message.text
             ) : (
-              <MarkdownRenderer markdownText={message.text} />
+              <MarkdownRenderer 
+                markdownText={message.text} 
+                collectedSentences={collectedSentences}
+                onToggleCollect={onToggleCollect}
+                ttsSpeed={ttsSpeed}
+                onExplain={onExplain}
+                onCollectAnim={onCollectAnim}
+              />
             )}
         </div>
       </div>

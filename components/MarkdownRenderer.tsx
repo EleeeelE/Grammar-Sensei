@@ -1,13 +1,18 @@
 
 import React from 'react';
 import Markdown from 'react-markdown';
-import { TtsHighlight } from './TtsHighlight';
+import { InteractiveSentence } from './InteractiveSentence';
 
 interface MarkdownRendererProps {
   markdownText: string;
+  collectedSentences?: string[];
+  onToggleCollect?: (text: string) => void;
+  ttsSpeed: number;
+  onExplain?: (text: string) => void;
+  onCollectAnim?: (startX: number, startY: number) => void;
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownText }) => {
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownText, collectedSentences = [], onToggleCollect, ttsSpeed, onExplain, onCollectAnim }) => {
   return (
     <div className="markdown-body font-hand">
       <Markdown
@@ -21,11 +26,19 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownText
             // we treat it as TTS highlightable text.
             const isEffectivelyInline = inline || !rawContent.includes('\n');
 
-            if (isEffectivelyInline) {
+            if (isEffectivelyInline && onToggleCollect) {
+              const isCollected = collectedSentences.includes(text);
               return (
-                <TtsHighlight text={text}>
+                <InteractiveSentence 
+                    text={text} 
+                    isCollected={isCollected}
+                    onToggleCollect={onToggleCollect}
+                    ttsSpeed={ttsSpeed}
+                    onExplain={onExplain}
+                    onCollectAnim={onCollectAnim}
+                >
                   {text}
-                </TtsHighlight>
+                </InteractiveSentence>
               );
             }
             

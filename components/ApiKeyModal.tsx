@@ -16,12 +16,12 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave, initialKey = '
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputKey.trim()) {
-      setError('请输入有效的 Token');
+      setError('请输入有效的 API Key');
       return;
     }
-    // Hugging Face tokens usually start with hf_
-    if (!inputKey.startsWith('hf_')) {
-      setError('Token 格式似乎不对 (通常以 hf_ 开头)');
+    // SiliconFlow keys usually start with sk-
+    if (!inputKey.startsWith('sk-')) {
+      setError('API Key 格式似乎不对 (通常以 sk- 开头)');
       return;
     }
     onSave(inputKey.trim());
@@ -38,18 +38,18 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave, initialKey = '
                  <Key size={32} className="text-blue-500" strokeWidth={2.5} />
              </div>
              <h2 className="text-2xl font-black text-blue-950 mb-1">只需一步...</h2>
-             <p className="text-sm font-bold text-blue-500">输入你的 Hugging Face Token (免费) 即可开始</p>
+             <p className="text-sm font-bold text-blue-500">输入你的 SiliconFlow API Key 即可开始</p>
          </div>
 
          <form onSubmit={handleSubmit} className="space-y-4">
              <div>
-                 <label className="block text-xs font-black text-blue-950 uppercase mb-1 ml-1">Hugging Face Token</label>
+                 <label className="block text-xs font-black text-blue-950 uppercase mb-1 ml-1">API Key</label>
                  <div className="relative">
                      <input 
                         type="password" 
                         value={inputKey}
                         onChange={(e) => { setInputKey(e.target.value); setError(''); }}
-                        placeholder="hf_..."
+                        placeholder="sk-..."
                         className="w-full bg-blue-50 border-2 border-blue-950 rounded-xl py-3 pl-10 pr-4 text-blue-950 font-bold focus:outline-none focus:ring-4 focus:ring-blue-200 transition-all placeholder-blue-300"
                      />
                      <Lock size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-400" />
@@ -76,17 +76,17 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave, initialKey = '
          </form>
 
          <div className="mt-6 pt-4 border-t-2 border-blue-100 text-center">
-             <p className="text-xs text-blue-400 font-bold mb-2">还没有 Token?</p>
+             <p className="text-xs text-blue-400 font-bold mb-2">还没有 API Key?</p>
              <a 
-                href="https://huggingface.co/settings/tokens" 
+                href="https://cloud.siliconflow.cn/" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-xs font-black text-blue-950 bg-white border-2 border-blue-950 px-3 py-1.5 rounded-lg shadow-sketchy-sm hover:-translate-y-0.5 transition-transform"
              >
-                 <ExternalLink size={12} /> 免费获取 (Hugging Face)
+                 <ExternalLink size={12} /> 免费获取 (SiliconFlow)
              </a>
              <p className="text-[10px] text-blue-300 mt-3 max-w-xs mx-auto leading-tight">
-                 * Token 仅存储在您的浏览器本地，直接与 API 通信。
+                 * Key 仅存储在您的浏览器本地，直接与 API 通信。
              </p>
          </div>
       </div>

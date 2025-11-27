@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { X, Type, Volume2 } from 'lucide-react';
+import { X, Type, Volume2, Music, RefreshCw, Gauge } from 'lucide-react';
 import { FontSize } from '../types';
-import { playClick } from '../services/audioService';
+import { playClick, shuffleBgm } from '../services/audioService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -11,6 +11,12 @@ interface SettingsModalProps {
   setFontSize: (size: FontSize) => void;
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
+  bgmEnabled: boolean;
+  setBgmEnabled: (enabled: boolean) => void;
+  bgmVolume: number;
+  setBgmVolume: (vol: number) => void;
+  ttsSpeed: number;
+  setTtsSpeed: (speed: number) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -19,7 +25,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   fontSize,
   setFontSize,
   soundEnabled,
-  setSoundEnabled
+  setSoundEnabled,
+  bgmEnabled,
+  setBgmEnabled,
+  bgmVolume,
+  setBgmVolume,
+  ttsSpeed,
+  setTtsSpeed
 }) => {
   if (!isOpen) return null;
 
@@ -33,6 +45,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleToggleSound = () => {
       playClick();
       setSoundEnabled(!soundEnabled);
+  }
+
+  const handleToggleBgm = () => {
+      playClick();
+      setBgmEnabled(!bgmEnabled);
+  }
+
+  const handleShuffleBgm = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      playClick();
+      shuffleBgm();
   }
 
   const handleClose = () => {
@@ -91,7 +114,78 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Divider */}
             <div className="border-t-2 border-dashed border-blue-100"></div>
 
-            {/* Audio Settings - Simplified to just Click Sound */}
+            {/* TTS Speed Section */}
+            <div>
+                 <div className="flex items-center gap-2 mb-3 text-blue-950">
+                    <Gauge size={20} strokeWidth={2.5} />
+                    <span className="font-black text-lg">语音朗读速度: {ttsSpeed}x</span>
+                 </div>
+                 <div className="bg-blue-50 rounded-lg border-2 border-blue-100 p-4">
+                    <input 
+                        type="range" 
+                        min="0.5" 
+                        max="1.5" 
+                        step="0.1" 
+                        value={ttsSpeed}
+                        onChange={(e) => setTtsSpeed(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                    <div className="flex justify-between mt-2 text-xs font-bold text-blue-400">
+                        <span>🐢 慢 (0.5)</span>
+                        <span>正常</span>
+                        <span>快 (1.5) 🐇</span>
+                    </div>
+                 </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t-2 border-dashed border-blue-100"></div>
+
+            {/* BGM Settings */}
+            <div>
+                 <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 text-blue-950">
+                        <Music size={20} strokeWidth={2.5} />
+                        <span className="font-black text-lg">背景音乐</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button 
+                             onClick={handleShuffleBgm}
+                             className="p-1.5 bg-blue-100 text-blue-500 rounded-lg border-2 border-blue-200 hover:bg-blue-200 active:scale-95 transition-all"
+                             title="换一首"
+                        >
+                            <RefreshCw size={16} strokeWidth={2.5} />
+                        </button>
+                        <button 
+                            onClick={handleToggleBgm}
+                            className={`w-12 h-7 rounded-full border-[3px] border-blue-950 relative transition-colors shadow-sketchy-sm ${bgmEnabled ? 'bg-blue-500' : 'bg-gray-200'}`}
+                        >
+                            <div className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-blue-950 rounded-full transition-all duration-300 ${bgmEnabled ? 'left-[calc(100%-20px)]' : 'left-1'}`}></div>
+                        </button>
+                    </div>
+                 </div>
+                 
+                 {/* Volume Slider */}
+                 <div className={`transition-all duration-300 ${bgmEnabled ? 'opacity-100 max-h-12' : 'opacity-40 max-h-12 pointer-events-none grayscale'}`}>
+                     <div className="bg-blue-50 rounded-lg border-2 border-blue-100 p-2 flex items-center gap-3">
+                        <Volume2 size={16} className="text-blue-300" />
+                        <input 
+                            type="range" 
+                            min="0" 
+                            max="0.4" 
+                            step="0.01" 
+                            value={bgmVolume}
+                            onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
+                            className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
+                     </div>
+                 </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t-2 border-dashed border-blue-100"></div>
+
+            {/* SFX Settings */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-blue-950">
                     <Volume2 size={20} strokeWidth={2.5} />
@@ -99,16 +193,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
                 <button 
                     onClick={handleToggleSound}
-                    className={`w-14 h-8 rounded-full border-[3px] border-blue-950 relative transition-colors shadow-sketchy-sm ${soundEnabled ? 'bg-blue-500' : 'bg-gray-200'}`}
+                    className={`w-12 h-7 rounded-full border-[3px] border-blue-950 relative transition-colors shadow-sketchy-sm ${soundEnabled ? 'bg-blue-500' : 'bg-gray-200'}`}
                 >
-                    <div className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-blue-950 rounded-full transition-all duration-300 ${soundEnabled ? 'left-[calc(100%-24px)]' : 'left-1'}`}></div>
+                    <div className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-blue-950 rounded-full transition-all duration-300 ${soundEnabled ? 'left-[calc(100%-20px)]' : 'left-1'}`}></div>
                 </button>
             </div>
         </div>
 
         {/* Footer */}
         <div className="bg-blue-50 p-4 border-t-[3px] border-blue-950 text-center">
-            <p className="text-xs font-bold text-blue-300">Grammar Sensei v1.5 • Clean Mode ✨</p>
+            <p className="text-xs font-bold text-blue-300">Grammar Sensei v1.7 • Chill Beats 🎵</p>
         </div>
 
       </div>

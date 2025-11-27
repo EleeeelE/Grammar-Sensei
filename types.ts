@@ -1,4 +1,5 @@
 
+
 export interface Message {
   id: string;
   role: 'user' | 'model';
@@ -23,6 +24,13 @@ export interface SuggestedReply {
   value: string;
 }
 
+export interface NotebookEntry {
+  id: string;
+  text: string;
+  timestamp: number;
+  lessonTitle?: string;
+}
+
 export type FontSize = 'small' | 'normal' | 'large' | 'xl';
 
 export enum ViewState {
@@ -31,5 +39,6 @@ export enum ViewState {
   CATEGORY_DETAILS = 'CATEGORY_DETAILS',
   CHAT = 'CHAT',
   FAVORITES = 'FAVORITES',
-  PROMO = 'PROMO'
+  PROMO = 'PROMO',
+  NOTEBOOK = 'NOTEBOOK'
 }

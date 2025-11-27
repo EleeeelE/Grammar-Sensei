@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Message } from '../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -6,9 +5,10 @@ import { CheckSquare } from 'lucide-react';
 
 interface SummaryCardProps {
   message: Message;
+  ttsSpeed: number;
 }
 
-export const SummaryCard: React.FC<SummaryCardProps> = ({ message }) => {
+export const SummaryCard: React.FC<SummaryCardProps> = ({ message, ttsSpeed }) => {
   return (
     <div className="my-6 animate-pop-in">
         <style>
@@ -40,7 +40,7 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({ message }) => {
         </style>
       <div className="bg-yellow-50 border-[3px] border-blue-950 shadow-sketchy rounded-xl overflow-hidden">
         <div className="p-4 sm:p-5 summary-card-bg">
-            <MarkdownRenderer markdownText={message.text} />
+            <MarkdownRenderer markdownText={message.text} ttsSpeed={ttsSpeed} />
         </div>
       </div>
     </div>

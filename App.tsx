@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ViewState, Message, Lesson, SuggestedReply, FontSize } from './types';
+import { ViewState, Message, Lesson, SuggestedReply, FontSize, NotebookEntry } from './types';
 import { PREDEFINED_LESSONS, DEFAULT_SUGGESTIONS, LESSON_CATEGORIES, CATEGORY_META } from './constants';
-import { startChat, sendMessageStream, parseContentWithOptions, generateSummary } from './services/geminiService';
-import { setSoundEnabled as setAudioSoundEnabled, playClick } from './services/audioService';
+import { startChat, sendMessageStream, parseContentWithOptions, generateSummary, setApiKey, explainText } from './services/geminiService';
+import { setSoundEnabled as setAudioSoundEnabled, setBgmEnabled as setAudioBgmEnabled, setBgmVolume as setAudioBgmVolume, playClick } from './services/audioService';
 import { LessonCard } from './components/LessonCard';
 import { ChatBubble } from './components/ChatBubble';
 import { ChatInput } from './components/ChatInput';
@@ -11,50 +11,26 @@ import { LandingPage } from './components/LandingPage';
 import { SummaryCard } from './components/SummaryCard';
 import { SummaryFab } from './components/SummaryFab';
 import { SettingsModal } from './components/SettingsModal';
-import { BookOpen, ChevronRight, ArrowLeft, Star, Sparkles, Settings as SettingsIcon } from 'lucide-react';
+import { ApiKeyModal } from './components/ApiKeyModal';
+import { NotebookView } from './components/NotebookView';
+import { SessionNotes } from './components/SessionNotes';
+import { FlyingStar } from './components/FlyingStar';
+import { ExplanationPanel } from './components/ExplanationPanel';
+import { BookOpen, ChevronRight, ArrowLeft, Star, Sparkles, Settings as SettingsIcon, Book } from 'lucide-react';
 
 // Helper function to split text into natural chat bubbles
 const splitContentIntoBubbles = (text: string): string[] => {
-  const explicitBlocks = text.split('===');
-  const finalBubbles: string[] = [];
+  // STRICT SPLITTING: Only split by the explicit delimiter '==='
+  // We no longer split by punctuation automatically to prevent "message spam".
+  // The AI prompt is responsible for placing '===' where a pause is needed.
+  let bubbles = text.split('===').map(b => b.trim()).filter(b => b.length > 0);
+  
+  // HARD LIMIT: Maximum 5 bubbles per turn to prevent overwhelming the user.
+  if (bubbles.length > 5) {
+      bubbles = bubbles.slice(0, 5);
+  }
 
-  explicitBlocks.forEach(block => {
-      if (!block.trim()) return;
-
-      const segments = block.split(/([。？！?!\n]+)/);
-      let currentBubble = "";
-
-      for (let i = 0; i < segments.length; i++) {
-          const segment = segments[i];
-          const isDelimiter = /^[。？！?!\n]+$/.test(segment);
-
-          if (isDelimiter) {
-              currentBubble += segment;
-              const nextSegment = segments[i + 1];
-              let isNextClosing = false;
-              if (nextSegment !== undefined) {
-                  const isClosingChar = /^[”」）)\*~`"'’]|^\s*$/.test(nextSegment);
-                  const isEmoji = /^\p{Extended_Pictographic}/u.test(nextSegment.trim());
-                  isNextClosing = isClosingChar || isEmoji;
-              }
-
-              if (!isNextClosing) {
-                  if (currentBubble.trim()) {
-                      finalBubbles.push(currentBubble.trim());
-                      currentBubble = "";
-                  }
-              }
-          } else {
-              currentBubble += segment;
-          }
-      }
-
-      if (currentBubble.trim()) {
-          finalBubbles.push(currentBubble.trim());
-      }
-  });
-
-  return finalBubbles;
+  return bubbles;
 };
 
 const App: React.FC = () => {
@@ -70,11 +46,34 @@ const App: React.FC = () => {
 
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+  
+  // Notebook State
+  const [notebook, setNotebook] = useState<NotebookEntry[]>([]);
+  const [isSessionNotesOpen, setIsSessionNotesOpen] = useState(false);
+
+  // Explanation Panel State
+  const [isExplanationOpen, setIsExplanationOpen] = useState(false);
+  const [explanationQuery, setExplanationQuery] = useState('');
+  const [explanationResult, setExplanationResult] = useState<string | null>(null);
+  const [isExplaining, setIsExplaining] = useState(false);
+
+  // Animation State
+  const [flyingStars, setFlyingStars] = useState<{id: string, startX: number, startY: number, endX: number, endY: number}[]>([]);
+  const starJarRef = useRef<HTMLButtonElement>(null);
+  const [isJarBouncing, setIsJarBouncing] = useState(false);
 
   // Settings State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [fontSize, setFontSize] = useState<FontSize>('normal');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [ttsSpeed, setTtsSpeed] = useState(0.8); // Default to slower speed
+  
+  // BGM State
+  const [bgmEnabled, setBgmEnabled] = useState(false);
+  const [bgmVolume, setBgmVolume] = useState(0.08);
+
+  // Auth State
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -97,10 +96,10 @@ const App: React.FC = () => {
             };
 
             setMessages(prev => prev.map(msg => (msg.id === thinkingId ? newBubble : msg)));
-            // Removed pop sound
 
             if (index + 1 < bubbles.length) {
-                const delay = Math.min(3500, Math.max(800, bubbleText.length * 75));
+                // Faster delay calculation: base 600ms + 30ms per char, max 2000ms
+                const delay = Math.min(2000, Math.max(600, bubbleText.length * 30));
                 
                 setTimeout(() => {
                 const nextThinkingId = `thinking-${Date.now()}-${index + 1}`;
@@ -137,6 +136,9 @@ const App: React.FC = () => {
     const savedFavorites = localStorage.getItem('favorite_lessons');
     if (savedFavorites) setFavorites(JSON.parse(savedFavorites));
     
+    const savedNotebook = localStorage.getItem('notebook_entries');
+    if (savedNotebook) setNotebook(JSON.parse(savedNotebook));
+
     // Load settings
     const savedFontSize = localStorage.getItem('fontSize');
     if (savedFontSize) setFontSize(savedFontSize as FontSize);
@@ -146,6 +148,33 @@ const App: React.FC = () => {
     const initialSound = savedSound !== null ? savedSound === 'true' : true;
     setSoundEnabled(initialSound);
     setAudioSoundEnabled(initialSound);
+
+    const savedBgm = localStorage.getItem('bgmEnabled');
+    const initialBgm = savedBgm !== null ? savedBgm === 'true' : false; // Default off to be polite
+    setBgmEnabled(initialBgm);
+    setAudioBgmEnabled(initialBgm);
+
+    const savedBgmVol = localStorage.getItem('bgmVolume');
+    const initialBgmVol = savedBgmVol ? parseFloat(savedBgmVol) : 0.08;
+    setBgmVolume(initialBgmVol);
+    setAudioBgmVolume(initialBgmVol);
+
+    const savedTtsSpeed = localStorage.getItem('ttsSpeed');
+    if (savedTtsSpeed) setTtsSpeed(parseFloat(savedTtsSpeed));
+
+    // Initialize API Key
+    const envKey = process.env.API_KEY;
+    if (envKey && envKey.startsWith('sk-')) {
+        setApiKey(envKey);
+    } else {
+        const localKey = localStorage.getItem('siliconflow_api_key');
+        if (localKey && localKey.startsWith('sk-')) {
+            setApiKey(localKey);
+        } else {
+            // Delay slightly to let intro animation finish or avoid interference
+            setTimeout(() => setShowApiKeyModal(true), 1000);
+        }
+    }
 
   }, []);
 
@@ -160,6 +189,20 @@ const App: React.FC = () => {
   }, [soundEnabled]);
 
   useEffect(() => {
+    localStorage.setItem('bgmEnabled', String(bgmEnabled));
+    setAudioBgmEnabled(bgmEnabled);
+  }, [bgmEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('bgmVolume', String(bgmVolume));
+    setAudioBgmVolume(bgmVolume);
+  }, [bgmVolume]);
+
+  useEffect(() => {
+    localStorage.setItem('ttsSpeed', String(ttsSpeed));
+  }, [ttsSpeed]);
+
+  useEffect(() => {
     if (
       !inputDisabled &&
       view === ViewState.CHAT &&
@@ -172,9 +215,15 @@ const App: React.FC = () => {
         localStorage.setItem('completed_lessons', JSON.stringify(newCompleted));
         return newCompleted;
       });
-      // Removed success sound
     }
   }, [inputDisabled, view, messages, currentLesson, completedLessons]);
+
+  const handleSaveApiKey = (key: string) => {
+    setApiKey(key);
+    localStorage.setItem('siliconflow_api_key', key);
+    setShowApiKeyModal(false);
+    playClick();
+  };
 
   const handleStart = () => {
     playClick();
@@ -204,6 +253,11 @@ const App: React.FC = () => {
     playClick();
     setView(ViewState.FAVORITES);
   };
+  
+  const handleGoToNotebook = () => {
+      playClick();
+      setView(ViewState.NOTEBOOK);
+  }
 
   const handleCustomTopicStart = async () => {
     playClick();
@@ -218,12 +272,12 @@ const App: React.FC = () => {
       initialPrompt: `我想学习关于"${customTopic}"的日语知识。请作为老师教我。`
     };
 
-    startLesson(newLesson);
+    await startLesson(newLesson);
     setCustomTopic('');
   };
 
   const handleToggleFavorite = (lessonId: string) => {
-    playClick(); // Star sound is effectively a click interaction
+    playClick(); 
     setFavorites(prev => {
       const newFavs = prev.includes(lessonId) 
         ? prev.filter(id => id !== lessonId)
@@ -233,12 +287,58 @@ const App: React.FC = () => {
     });
   };
 
+  // Notebook Collection Handler
+  const handleToggleNotebookEntry = (text: string) => {
+      setNotebook(prev => {
+          const exists = prev.find(entry => entry.text === text);
+          let newNotebook;
+          if (exists) {
+              newNotebook = prev.filter(entry => entry.text !== text);
+          } else {
+              newNotebook = [{
+                  id: `note-${Date.now()}`,
+                  text,
+                  timestamp: Date.now(),
+                  lessonTitle: currentLesson?.title || '自由对话'
+              }, ...prev];
+          }
+          localStorage.setItem('notebook_entries', JSON.stringify(newNotebook));
+          return newNotebook;
+      });
+  };
+
+  const handleCollectAnimation = (startX: number, startY: number) => {
+    if (!starJarRef.current) return;
+    
+    const jarRect = starJarRef.current.getBoundingClientRect();
+    const endX = jarRect.left + jarRect.width / 2;
+    const endY = jarRect.top + jarRect.height / 2;
+
+    const id = `star-${Date.now()}`;
+    setFlyingStars(prev => [...prev, { id, startX, startY, endX, endY }]);
+  };
+
+  const handleStarAnimationComplete = (id: string) => {
+    setFlyingStars(prev => prev.filter(s => s.id !== id));
+    setIsJarBouncing(true);
+    setTimeout(() => setIsJarBouncing(false), 300);
+  };
+
+  const handleRemoveNotebookEntry = (id: string) => {
+      setNotebook(prev => {
+          const newNotebook = prev.filter(entry => entry.id !== id);
+          localStorage.setItem('notebook_entries', JSON.stringify(newNotebook));
+          return newNotebook;
+      });
+  }
+
   const startLesson = async (lesson: Lesson) => {
     playClick();
     setCurrentLesson(lesson);
     setView(ViewState.CHAT);
     setMessages([]);
     setSuggestions([]);
+    setIsSessionNotesOpen(false); // Reset note drawer
     setInputDisabled(true);
     const tempMsgId = Date.now().toString();
 
@@ -272,8 +372,16 @@ const App: React.FC = () => {
       setSuggestions(suggestionObjects.length > 0 ? suggestionObjects : DEFAULT_SUGGESTIONS);
       setInputDisabled(false);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Chat Error:", error);
+      // Handle Auth Errors gracefully
+      if (error.message === 'INVALID_TOKEN' || error.message === 'MISSING_API_KEY') {
+        setMessages(prev => prev.filter(p => p.id !== tempMsgId));
+        setShowApiKeyModal(true);
+        setInputDisabled(false);
+        return;
+      }
+
       setMessages(prev => prev.filter(p => p.id !== tempMsgId));
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
@@ -287,7 +395,6 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async (text: string) => {
-    // Removed send sound
     const userMsgId = Date.now().toString();
     const newUserMsg: Message = { id: userMsgId, role: 'user', text, timestamp: Date.now(), type: 'chat' };
     
@@ -322,13 +429,20 @@ const App: React.FC = () => {
             const bubbles = splitContentIntoBubbles(cleanText);
             const suggestionObjects = options.map(opt => ({ label: opt, value: opt }));
 
-            // Removed receive sound
             await addBubblesSequentially(bubbles, tempMsgId);
             
             setSuggestions(suggestionObjects.length > 0 ? suggestionObjects : DEFAULT_SUGGESTIONS);
             setInputDisabled(false);
     
-        } catch (error) {
+        } catch (error: any) {
+            console.error("Chat Error:", error);
+            if (error.message === 'INVALID_TOKEN' || error.message === 'MISSING_API_KEY') {
+                setMessages(prev => prev.filter(p => p.id !== tempMsgId));
+                setShowApiKeyModal(true);
+                setInputDisabled(false);
+                return;
+            }
+
             setMessages(prev => prev.filter(p => p.id !== tempMsgId));
             setMessages(prev => [...prev, {
                 id: Date.now().toString(),
@@ -358,20 +472,47 @@ const App: React.FC = () => {
             type: 'summary',
         };
         setMessages(prev => [...prev, summaryMessage]);
-        // Removed success sound
-    } catch (error) {
+    } catch (error: any) {
         console.error("Summary Generation Error:", error);
-        const errorMessage: Message = {
-            id: `error-${Date.now()}`,
-            role: 'model',
-            text: "抱歉，总结的时候好像出了一点小问题... 😵",
-            timestamp: Date.now(),
-            type: 'chat',
-        };
-        setMessages(prev => [...prev, errorMessage]);
+        if (error.message === 'INVALID_TOKEN' || error.message === 'MISSING_API_KEY') {
+            setShowApiKeyModal(true);
+        } else {
+            const errorMessage: Message = {
+                id: `error-${Date.now()}`,
+                role: 'model',
+                text: "抱歉，总结的时候好像出了一点小问题... 😵",
+                timestamp: Date.now(),
+                type: 'chat',
+            };
+            setMessages(prev => [...prev, errorMessage]);
+        }
     } finally {
         setIsSummarizing(false);
         setInputDisabled(false);
+    }
+  };
+
+  // Explanation Handler - Updated for Dictionary Panel
+  const handleExplain = async (text: string) => {
+    if (inputDisabled || isSummarizing) return;
+    
+    // Close session notes if open
+    if (isSessionNotesOpen) setIsSessionNotesOpen(false);
+    
+    // Open Explanation Panel
+    setIsExplanationOpen(true);
+    setExplanationQuery(text);
+    setExplanationResult(null);
+    setIsExplaining(true);
+
+    try {
+        const result = await explainText(text);
+        setExplanationResult(result);
+    } catch (error) {
+        console.error("Explanation Error:", error);
+        setExplanationResult("抱歉，解析服务暂时不可用，请检查网络或 Key。");
+    } finally {
+        setIsExplaining(false);
     }
   };
 
@@ -400,9 +541,14 @@ const App: React.FC = () => {
        
        <div className="flex items-center gap-2">
             {!onBack && (
-              <button onClick={handleGoToFavorites} className="p-2 bg-yellow-300 border-2 border-blue-950 rounded-lg hover:bg-yellow-200 transition-colors shadow-sketchy-sm">
-                 <Star size={20} strokeWidth={3} className="text-blue-950" />
-             </button>
+              <>
+                 <button onClick={handleGoToNotebook} className="p-2 bg-white border-2 border-blue-950 rounded-lg hover:bg-blue-50 transition-colors shadow-sketchy-sm text-blue-950">
+                    <Book size={20} strokeWidth={3} />
+                 </button>
+                 <button onClick={handleGoToFavorites} className="p-2 bg-yellow-300 border-2 border-blue-950 rounded-lg hover:bg-yellow-200 transition-colors shadow-sketchy-sm">
+                    <Star size={20} strokeWidth={3} className="text-blue-950" />
+                </button>
+             </>
             )}
             <button 
               onClick={() => { playClick(); setIsSettingsOpen(true); }}
@@ -425,14 +571,60 @@ const App: React.FC = () => {
         setFontSize={setFontSize}
         soundEnabled={soundEnabled}
         setSoundEnabled={setSoundEnabled}
+        bgmEnabled={bgmEnabled}
+        setBgmEnabled={setBgmEnabled}
+        bgmVolume={bgmVolume}
+        setBgmVolume={setBgmVolume}
+        ttsSpeed={ttsSpeed}
+        setTtsSpeed={setTtsSpeed}
       />
+
+      {/* API Key Modal */}
+      {showApiKeyModal && (
+        <ApiKeyModal onSave={handleSaveApiKey} />
+      )}
+
+      {/* Session Notes Drawer (Only in Chat View) */}
+      {view === ViewState.CHAT && currentLesson && (
+        <SessionNotes 
+          isOpen={isSessionNotesOpen}
+          onClose={() => setIsSessionNotesOpen(false)}
+          entries={notebook.filter(n => n.lessonTitle === currentLesson.title)}
+          onRemoveEntry={handleRemoveNotebookEntry}
+          ttsSpeed={ttsSpeed}
+          onExplain={handleExplain}
+        />
+      )}
+
+      {/* Explanation Panel */}
+      <ExplanationPanel 
+        isOpen={isExplanationOpen}
+        onClose={() => setIsExplanationOpen(false)}
+        loading={isExplaining}
+        query={explanationQuery}
+        result={explanationResult}
+        ttsSpeed={ttsSpeed}
+        onExplainNested={handleExplain} // Allows clicking "explain" inside the explanation panel
+      />
+
+      {/* Render Flying Stars */}
+      {flyingStars.map(star => (
+        <FlyingStar
+          key={star.id}
+          startX={star.startX}
+          startY={star.startY}
+          endX={star.endX}
+          endY={star.endY}
+          onComplete={() => handleStarAnimationComplete(star.id)}
+        />
+      ))}
 
       {view === ViewState.LANDING && (
         <LandingPage onStart={handleStart} />
       )}
 
       {view === ViewState.HOME && (
-        <>
+        <div key="home" className="flex-1 flex flex-col h-full animate-enter-app">
           {renderHeader("Grammar Sensei", "选择你的冒险")}
           
           <main className="flex-1 overflow-y-auto p-4 pb-8 min-h-0 scroll-smooth hide-scrollbar chat-bg-pattern">
@@ -502,11 +694,11 @@ const App: React.FC = () => {
               })}
             </div>
           </main>
-        </>
+        </div>
       )}
 
       {view === ViewState.FAVORITES && (
-        <>
+        <div key="favorites" className="flex-1 flex flex-col h-full animate-enter-app">
           {renderHeader("我的收藏", "你最喜欢的课程都在这里", handleBackToHome)}
           <main className="flex-1 overflow-y-auto p-4 min-h-0 hide-scrollbar chat-bg-pattern">
             {favorites.length > 0 ? (
@@ -536,11 +728,24 @@ const App: React.FC = () => {
               </div>
             )}
           </main>
-        </>
+        </div>
+      )}
+      
+      {view === ViewState.NOTEBOOK && (
+        <div key="notebook" className="flex-1 flex flex-col h-full animate-enter-app">
+          {renderHeader("我的笔记本", "收藏的金句和生词", handleBackToHome)}
+          <main className="flex-1 overflow-y-auto p-4 min-h-0 hide-scrollbar chat-bg-pattern">
+             <NotebookView 
+                entries={notebook} 
+                onRemoveEntry={handleRemoveNotebookEntry} 
+                ttsSpeed={ttsSpeed}
+             />
+          </main>
+        </div>
       )}
 
       {view === ViewState.CATEGORY_DETAILS && selectedCategory && (
-        <>
+        <div key="category" className="flex-1 flex flex-col h-full animate-enter-app">
           {renderHeader(selectedCategory, CATEGORY_META[selectedCategory].description, handleBackToHome)}
           
           <main className="flex-1 overflow-y-auto p-4 min-h-0 hide-scrollbar chat-bg-pattern">
@@ -558,11 +763,11 @@ const App: React.FC = () => {
                 ))}
             </div>
           </main>
-        </>
+        </div>
       )}
 
       {view === ViewState.CHAT && currentLesson && (
-        <>
+        <div key="chat" className="flex-1 flex flex-col h-full animate-enter-app">
            <div className="bg-blue-500 text-white px-4 py-3 flex items-center gap-3 border-b-[3px] border-blue-950 shadow-sm z-30 flex-shrink-0">
                <button onClick={currentLesson.category === 'Custom' ? handleBackToHome : handleBackToCategories} className="p-1.5 bg-blue-400 border-2 border-blue-950 rounded-lg hover:bg-blue-300 active:translate-y-0.5 shadow-sketchy-sm">
                    <ArrowLeft size={18} strokeWidth={3} />
@@ -573,9 +778,26 @@ const App: React.FC = () => {
                </div>
                
                <div className="flex items-center gap-2">
-                    <div className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-bold border border-white/30">
-                        {currentLesson.category}
-                    </div>
+                    {/* Session Note Button (Star Jar) */}
+                    <button 
+                        ref={starJarRef}
+                        onClick={() => { playClick(); setIsSessionNotesOpen(true); }}
+                        className={`p-1.5 bg-white border-2 border-blue-950 rounded-lg hover:bg-blue-50 transition-all shadow-sketchy-sm relative ${isJarBouncing ? 'scale-110' : 'scale-100'}`}
+                    >
+                        {/* Custom SVG Jar Icon */}
+                        <div className="relative w-5 h-5 flex items-center justify-center">
+                            {/* Jar Body */}
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-blue-950">
+                                <path d="M6 4V2H18V4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                                <path d="M7 4L5 7V21C5 21.5523 5.44772 22 6 22H18C18.5523 22 19 21.5523 19 21V7L17 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                {/* Fill Level */}
+                                {notebook.some(n => n.lessonTitle === currentLesson.title) && (
+                                   <rect x="7" y={20 - Math.min(12, Math.max(2, (notebook.filter(n => n.lessonTitle === currentLesson.title).length) * 2))} width="10" height={Math.min(12, Math.max(2, (notebook.filter(n => n.lessonTitle === currentLesson.title).length) * 2))} fill="#FACC15" rx="1" />
+                                )}
+                            </svg>
+                        </div>
+                    </button>
+
                     <button 
                         onClick={() => { playClick(); setIsSettingsOpen(true); }}
                         className="p-1.5 bg-blue-800 border-2 border-blue-950 rounded-lg hover:bg-blue-700 transition-colors shadow-sketchy-sm"
@@ -588,7 +810,7 @@ const App: React.FC = () => {
            <div className="flex-1 overflow-y-auto p-4 scroll-smooth min-h-0 hide-scrollbar chat-bg-pattern relative">
               {messages.map((msg, idx) => {
                  if (msg.type === 'summary') {
-                    return <SummaryCard key={msg.id} message={msg} />
+                    return <SummaryCard key={msg.id} message={msg} ttsSpeed={ttsSpeed} />
                  }
                  return (
                     <ChatBubble 
@@ -596,6 +818,11 @@ const App: React.FC = () => {
                         message={msg} 
                         showAvatar={msg.role === 'model' && (!messages[idx-1] || messages[idx-1].role !== 'model')} 
                         fontSize={fontSize}
+                        collectedSentences={notebook.map(n => n.text)}
+                        onToggleCollect={handleToggleNotebookEntry}
+                        ttsSpeed={ttsSpeed}
+                        onExplain={handleExplain}
+                        onCollectAnim={handleCollectAnimation}
                     />
                  )
               })}
@@ -612,7 +839,7 @@ const App: React.FC = () => {
              suggestions={suggestions}
              disabled={inputDisabled || isSummarizing}
            />
-        </>
+        </div>
       )}
 
     </div>
