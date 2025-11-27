@@ -2,7 +2,7 @@
 import React from 'react';
 import { Message, FontSize } from '../types';
 import { Sparkles, User } from 'lucide-react';
-import Markdown from 'react-markdown';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface ChatBubbleProps {
   message: Message;
@@ -99,9 +99,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ message, showAvatar, fon
             {isUser ? (
             message.text
             ) : (
-            <div className="markdown-body [&>p]:mb-1 font-hand">
-                <Markdown>{message.text}</Markdown>
-            </div>
+              <MarkdownRenderer markdownText={message.text} />
             )}
         </div>
       </div>

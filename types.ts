@@ -5,6 +5,7 @@ export interface Message {
   text: string;
   timestamp: number;
   isStreaming?: boolean;
+  type?: 'chat' | 'summary';
 }
 
 export interface Lesson {

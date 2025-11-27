@@ -1,9 +1,9 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Mic, Loader2 } from 'lucide-react';
 // FIX: Import SuggestedReply type to handle structured suggestions.
 import { SuggestedReply } from '../types';
+import { playClick } from '../services/audioService';
 
 interface ChatInputProps {
   onSend: (text: string) => void;
@@ -36,6 +36,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, suggestions, disab
   };
 
   const handleMicClick = () => {
+    playClick();
     if (isListening) {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
@@ -101,7 +102,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, suggestions, disab
             <button
               key={idx}
               // FIX: Send suggestion's value on click, not the whole object.
-              onClick={() => !disabled && onSend(sug.value)}
+              onClick={() => { playClick(); !disabled && onSend(sug.value); }}
               disabled={disabled}
               className={`w-full bg-white border-[3px] border-blue-950 hover:bg-blue-50 text-blue-950 px-4 py-3 text-sm font-bold shadow-sketchy-sm transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none text-left flex items-center font-hand rounded-lg transform ${idx % 2 === 0 ? '-rotate-1' : 'rotate-1'}`}
               style={{ animationDelay: `${idx * 50}ms` }}
