@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { ViewState, Message, Lesson, SuggestedReply, FontSize, NotebookEntry } from './types';
-import { PREDEFINED_LESSONS, DEFAULT_SUGGESTIONS, LESSON_CATEGORIES, CATEGORY_META } from './constants';
+import { PREDEFINED_LESSONS, DEFAULT_SUGGESTIONS, LESSON_CATEGORIES, CATEGORY_META, ROLEPLAY_SCENARIOS } from './constants';
 import { startChat, sendMessageStream, parseContentWithOptions, generateSummary, setApiKey, explainText } from './services/geminiService';
 import { setSoundEnabled as setAudioSoundEnabled, setBgmEnabled as setAudioBgmEnabled, setBgmVolume as setAudioBgmVolume, playClick } from './services/audioService';
 import { LessonCard } from './components/LessonCard';
@@ -16,7 +15,8 @@ import { NotebookView } from './components/NotebookView';
 import { SessionNotes } from './components/SessionNotes';
 import { FlyingStar } from './components/FlyingStar';
 import { ExplanationPanel } from './components/ExplanationPanel';
-import { BookOpen, ChevronRight, ArrowLeft, Star, Sparkles, Settings as SettingsIcon, Book } from 'lucide-react';
+import { VerbConjugationTable } from './components/VerbConjugationTable';
+import { BookOpen, ChevronRight, ArrowLeft, Star, Sparkles, Settings as SettingsIcon, Book, Search, X, Hash, ArrowRight as ArrowIcon, Swords, MapPin, Table } from 'lucide-react';
 
 // Helper function to split text into natural chat bubbles
 const splitContentIntoBubbles = (text: string): string[] => {
@@ -33,7 +33,7 @@ const splitContentIntoBubbles = (text: string): string[] => {
   return bubbles;
 };
 
-const App: React.FC = () => {
+export const App: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.LANDING);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
@@ -42,6 +42,8 @@ const App: React.FC = () => {
   const [suggestions, setSuggestions] = useState<SuggestedReply[]>([]);
   
   const [customTopic, setCustomTopic] = useState('');
+  const [searchQuery, setSearchQuery] = useState(''); // New State for Search
+  const [jumpNum, setJumpNum] = useState(''); // State for separate number jump input
   const [isSummarizing, setIsSummarizing] = useState(false);
 
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
@@ -98,8 +100,11 @@ const App: React.FC = () => {
             setMessages(prev => prev.map(msg => (msg.id === thinkingId ? newBubble : msg)));
 
             if (index + 1 < bubbles.length) {
-                // Faster delay calculation: base 600ms + 30ms per char, max 2000ms
-                const delay = Math.min(2000, Math.max(600, bubbleText.length * 30));
+                // Slower delay calculation for comfortable reading
+                // Base delay: 1500ms (1.5s)
+                // Per char: 80ms (approx 12 chars per second)
+                // Max delay: 5000ms (5s)
+                const delay = Math.min(5000, Math.max(1500, bubbleText.length * 80));
                 
                 setTimeout(() => {
                 const nextThinkingId = `thinking-${Date.now()}-${index + 1}`;
@@ -113,9 +118,10 @@ const App: React.FC = () => {
                 };
                 setMessages(prev => [...prev, thinkingBubble]);
                 
+                // Thinking animation duration (1s)
                 setTimeout(() => {
                     processBubble(index + 1, nextThinkingId);
-                }, 600);
+                }, 1000);
 
                 }, delay);
             } else {
@@ -123,9 +129,10 @@ const App: React.FC = () => {
             }
         };
 
+        // Initial delay before the first bubble converts from thinking state
         setTimeout(() => {
             processBubble(0, initialThinkingId);
-        }, 600);
+        }, 1000);
     });
 };
   
@@ -233,12 +240,15 @@ const App: React.FC = () => {
   const handleCategorySelect = (category: string) => {
     playClick();
     setSelectedCategory(category);
+    setSearchQuery(''); // Reset search when entering category
+    setJumpNum(''); // Reset jump num
     setView(ViewState.CATEGORY_DETAILS);
   };
 
   const handleBackToHome = () => {
     playClick();
     setSelectedCategory(null);
+    setSearchQuery(''); // Reset search when going home
     setView(ViewState.HOME);
   };
 
@@ -247,6 +257,19 @@ const App: React.FC = () => {
     setView(ViewState.CATEGORY_DETAILS);
     setCurrentLesson(null);
     setMessages([]);
+  };
+
+  const handleChatBack = () => {
+    if (currentLesson?.category === 'Verb Conjugation') {
+        playClick();
+        setView(ViewState.VERB_TABLE);
+        setCurrentLesson(null);
+        setMessages([]);
+    } else if (currentLesson?.category === 'Custom' || currentLesson?.mode === 'roleplay') {
+        handleBackToHome();
+    } else {
+        handleBackToCategories();
+    }
   };
   
   const handleGoToFavorites = () => {
@@ -257,6 +280,11 @@ const App: React.FC = () => {
   const handleGoToNotebook = () => {
       playClick();
       setView(ViewState.NOTEBOOK);
+  }
+
+  const handleGoToVerbTable = () => {
+      playClick();
+      setView(ViewState.VERB_TABLE);
   }
 
   const handleCustomTopicStart = async () => {
@@ -522,6 +550,67 @@ const App: React.FC = () => {
     }
   }, [messages, suggestions]);
 
+  // Search Filter Helpers
+  const renderSearchBar = (placeholder: string) => (
+      <div className="bg-blue-500 px-4 pb-5 pt-3 border-b-[3px] border-blue-950 flex-shrink-0 z-20">
+          <div className="bg-white rounded-xl border-2 border-blue-950 flex items-center px-3 py-3 shadow-sketchy-sm focus-within:shadow-sketchy transition-all">
+              <Search size={22} className="text-blue-300 mr-2" />
+              <input 
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={placeholder}
+                  className="flex-1 bg-transparent border-none outline-none font-bold text-blue-950 placeholder-blue-300 font-hand text-lg"
+              />
+              {searchQuery && (
+                  <button onClick={() => setSearchQuery('')} className="p-1 text-blue-300 hover:text-blue-500">
+                      <X size={20} />
+                  </button>
+              )}
+          </div>
+      </div>
+  );
+  
+  const handleJumpToLesson = () => {
+    if (!jumpNum) return;
+    playClick();
+    setSearchQuery(jumpNum);
+  }
+
+  // Helper to get consistent index
+  const getLessonIndexByCategory = (lesson: Lesson) => {
+     const catLessons = PREDEFINED_LESSONS.filter(l => l.category === lesson.category);
+     return catLessons.findIndex(l => l.id === lesson.id);
+  };
+
+  const getFilteredLessons = (category?: string) => {
+      const query = searchQuery.toLowerCase().trim();
+      
+      // If filtering by specific category, enable searching by serial number
+      if (category) {
+          const categoryLessons = PREDEFINED_LESSONS.filter(l => l.category === category);
+          
+          if (!query) return categoryLessons;
+
+          return categoryLessons.filter((l, index) => {
+              const serial = (index + 1).toString();
+              return (
+                  l.title.toLowerCase().includes(query) || 
+                  l.subtitle.toLowerCase().includes(query) ||
+                  serial === query // Strict equality for exact number search if jumped
+                  || serial.includes(query) // Partial match for typing
+              );
+          });
+      }
+
+      // Global Search
+      return PREDEFINED_LESSONS.filter(l => {
+          return l.title.toLowerCase().includes(query) || 
+                 l.subtitle.toLowerCase().includes(query) ||
+                 l.category.toLowerCase().includes(query);
+      });
+  };
+
   const renderHeader = (title: string, subtitle?: string, onBack?: () => void) => (
     <div className="bg-blue-500 text-white p-4 flex items-center gap-3 border-b-[3px] border-blue-950 shadow-sketchy z-30 relative flex-shrink-0">
        {onBack ? (
@@ -627,74 +716,161 @@ const App: React.FC = () => {
         <div key="home" className="flex-1 flex flex-col h-full animate-enter-app">
           {renderHeader("Grammar Sensei", "选择你的冒险")}
           
+          {/* Global Search Bar */}
+          {renderSearchBar("搜索知识点...")}
+          
           <main className="flex-1 overflow-y-auto p-4 pb-8 min-h-0 scroll-smooth hide-scrollbar chat-bg-pattern">
             
-            <div className="mb-8 bg-white p-4 rounded-2xl border-[3px] border-blue-950 shadow-sketchy animate-pop-in">
-               <div className="flex items-center gap-2 mb-3">
-                  <div className="bg-yellow-400 border-2 border-blue-950 p-1.5 rounded-lg shadow-sm transform -rotate-6">
-                     <Sparkles size={18} className="text-blue-950" strokeWidth={3}/>
-                  </div>
-                  <h2 className="font-black text-lg">自由探索</h2>
-               </div>
-               <p className="text-xs font-bold text-blue-500 mb-3">不想按部就班？直接告诉我想学什么！</p>
-               
-               <div className="flex gap-2">
-                  <input 
-                    type="text"
-                    value={customTopic}
-                    onChange={(e) => setCustomTopic(e.target.value)}
-                    placeholder="输入语法点 (例如: 被动语态)..."
-                    className="flex-1 bg-blue-50 border-2 border-blue-950 rounded-xl px-3 py-2 font-bold text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-300 font-hand placeholder-blue-300"
-                    onKeyDown={(e) => e.key === 'Enter' && handleCustomTopicStart()}
-                  />
-                  <button 
-                    onClick={handleCustomTopicStart}
-                    disabled={!customTopic.trim()}
-                    className="bg-blue-500 text-white border-2 border-blue-950 rounded-xl px-4 font-black shadow-sketchy-sm active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    GO
-                  </button>
-               </div>
-            </div>
-
-            <h2 className="font-black text-blue-950 text-xl mb-4 ml-1 font-hand">课程地图</h2>
-            <div className="grid grid-cols-1 gap-4">
-              {LESSON_CATEGORIES.map((category, index) => {
-                const meta = CATEGORY_META[category];
-                const lessonsCount = PREDEFINED_LESSONS.filter(l => l.category === category).length;
-                const finishedCount = PREDEFINED_LESSONS.filter(l => l.category === category && completedLessons.includes(l.id)).length;
-                const progress = Math.round((finishedCount / lessonsCount) * 100) || 0;
-
-                return (
-                  <div 
-                    key={category}
-                    onClick={() => handleCategorySelect(category)}
-                    className={`relative bg-white border-[3px] border-blue-950 rounded-2xl p-0 overflow-hidden shadow-sketchy cursor-pointer transition-transform hover:-translate-y-1 active:translate-y-[2px] active:shadow-none animate-slide-up`}
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
-                    <div className="flex items-stretch min-h-[80px]">
-                       <div className={`${meta.iconBg} w-24 flex flex-col items-center justify-center border-r-[3px] border-blue-950 p-2`}>
-                           <span className={`text-2xl font-black ${meta.color}`}>{meta.level}</span>
-                           <span className="text-[10px] font-bold bg-white/30 px-2 py-0.5 rounded-full mt-1 text-blue-950 backdrop-blur-sm">
-                              {progress}%
-                           </span>
-                       </div>
-                       
-                       <div className="flex-1 p-4 flex flex-col justify-center">
-                           <h3 className="text-xl font-black text-blue-950 font-hand">{category}</h3>
-                           <p className="text-xs text-blue-500 font-bold leading-tight mt-1">{meta.description}</p>
-                       </div>
-
-                       <div className="pr-4 flex items-center justify-center text-blue-300">
-                          <ChevronRight size={24} strokeWidth={3} />
-                       </div>
+            {/* Show search results if searching, otherwise show standard home content */}
+            {searchQuery ? (
+                <div className="space-y-4 pb-6">
+                    {getFilteredLessons().length > 0 ? (
+                        getFilteredLessons().map((lesson) => (
+                            <LessonCard
+                                key={lesson.id}
+                                lesson={lesson}
+                                index={getLessonIndexByCategory(lesson)} // Show static index (Lesson 1 is 1)
+                                onClick={() => startLesson(lesson)}
+                                isCompleted={completedLessons.includes(lesson.id)}
+                                isFavorite={favorites.includes(lesson.id)}
+                                onToggleFavorite={handleToggleFavorite}
+                            />
+                        ))
+                    ) : (
+                        <div className="text-center py-10 opacity-50">
+                            <Search size={48} className="mx-auto mb-2" strokeWidth={2}/>
+                            <p className="font-bold">没有找到相关课程</p>
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <>
+                    {/* --- ROLEPLAY DOJO SECTION --- */}
+                    <div className="mb-6 animate-pop-in">
+                       <div className="flex items-center gap-2 mb-3">
+                            <div className="bg-purple-500 text-white border-2 border-blue-950 p-1.5 rounded-lg shadow-sm transform rotate-3">
+                                <Swords size={18} strokeWidth={3}/>
+                            </div>
+                            <h2 className="font-black text-lg text-blue-950">实战演练 Dojo</h2>
+                        </div>
+                        
+                        {/* Horizontal Scroller */}
+                        <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar snap-x snap-mandatory">
+                           {ROLEPLAY_SCENARIOS.map((scenario) => (
+                             <div 
+                               key={scenario.id}
+                               onClick={() => startLesson(scenario)}
+                               className="snap-center flex-shrink-0 w-64 bg-white border-[3px] border-blue-950 rounded-2xl p-4 shadow-sketchy cursor-pointer active:scale-95 transition-transform"
+                             >
+                                <div className="flex justify-between items-start mb-2">
+                                  <div className="bg-purple-100 text-purple-600 px-2 py-0.5 rounded text-[10px] font-black border border-purple-200">
+                                    Roleplay
+                                  </div>
+                                  <MapPin size={16} className="text-purple-300" />
+                                </div>
+                                <h3 className="font-black text-lg text-blue-950 leading-tight mb-1">{scenario.title}</h3>
+                                <p className="text-xs font-bold text-purple-400 mb-3">{scenario.subtitle}</p>
+                                <div className="text-[10px] text-gray-500 font-bold bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                  扮演: {scenario.roleplayData?.role}
+                                </div>
+                             </div>
+                           ))}
+                        </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+
+                    {/* --- Free Exploration & Verb Table --- */}
+                    <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-pop-in">
+                        {/* Free Exploration Card */}
+                        <div className="bg-white p-4 rounded-2xl border-[3px] border-blue-950 shadow-sketchy">
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="bg-yellow-400 border-2 border-blue-950 p-1.5 rounded-lg shadow-sm transform -rotate-6">
+                                    <Sparkles size={18} className="text-blue-950" strokeWidth={3}/>
+                                </div>
+                                <h2 className="font-black text-lg">自由探索</h2>
+                            </div>
+                            <p className="text-xs font-bold text-blue-500 mb-3">想学什么你说了算！</p>
+                            
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text"
+                                    value={customTopic}
+                                    onChange={(e) => setCustomTopic(e.target.value)}
+                                    placeholder="输入话题..."
+                                    className="flex-1 bg-blue-50 border-2 border-blue-950 rounded-xl px-3 py-2 font-bold text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-300 font-hand placeholder-blue-300 min-w-0"
+                                    onKeyDown={(e) => e.key === 'Enter' && handleCustomTopicStart()}
+                                />
+                                <button 
+                                    onClick={handleCustomTopicStart}
+                                    disabled={!customTopic.trim()}
+                                    className="bg-blue-500 text-white border-2 border-blue-950 rounded-xl px-3 font-black shadow-sketchy-sm active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    GO
+                                </button>
+                            </div>
+                        </div>
+
+                         {/* Verb Table Card */}
+                         <div 
+                             onClick={handleGoToVerbTable}
+                             className="bg-white p-4 rounded-2xl border-[3px] border-blue-950 shadow-sketchy cursor-pointer active:scale-95 transition-transform flex flex-col justify-between"
+                         >
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="bg-green-400 border-2 border-blue-950 p-1.5 rounded-lg shadow-sm transform rotate-3">
+                                    <Table size={18} className="text-blue-950" strokeWidth={3}/>
+                                </div>
+                                <h2 className="font-black text-lg">动词变形表</h2>
+                            </div>
+                            <p className="text-xs font-bold text-blue-500 mb-2">一表通关！包含五段、一段、不规则动词的所有常用变形。</p>
+                            <div className="flex justify-end">
+                                <span className="text-[10px] font-black bg-blue-50 text-blue-400 px-2 py-1 rounded-lg border border-blue-100">Cheat Sheet</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 className="font-black text-blue-950 text-xl mb-4 ml-1 font-hand">课程地图</h2>
+                    <div className="grid grid-cols-1 gap-4">
+                        {LESSON_CATEGORIES.map((category, index) => {
+                            const meta = CATEGORY_META[category];
+                            const lessonsCount = PREDEFINED_LESSONS.filter(l => l.category === category).length;
+                            const finishedCount = PREDEFINED_LESSONS.filter(l => l.category === category && completedLessons.includes(l.id)).length;
+                            const progress = Math.round((finishedCount / lessonsCount) * 100) || 0;
+
+                            return (
+                                <div 
+                                    key={category}
+                                    onClick={() => handleCategorySelect(category)}
+                                    className={`relative bg-white border-[3px] border-blue-950 rounded-2xl p-0 overflow-hidden shadow-sketchy cursor-pointer transition-transform hover:-translate-y-1 active:translate-y-[2px] active:shadow-none animate-slide-up`}
+                                    style={{ animationDelay: `${index * 50}ms` }}
+                                >
+                                    <div className="flex items-stretch min-h-[80px]">
+                                        <div className={`${meta.iconBg} w-24 flex flex-col items-center justify-center border-r-[3px] border-blue-950 p-2`}>
+                                            <span className={`text-2xl font-black ${meta.color}`}>{meta.level}</span>
+                                            <span className="text-[10px] font-bold bg-white/30 px-2 py-0.5 rounded-full mt-1 text-blue-950 backdrop-blur-sm">
+                                                {progress}%
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="flex-1 p-4 flex flex-col justify-center">
+                                            <h3 className="text-xl font-black text-blue-950 font-hand">{category}</h3>
+                                            <p className="text-xs text-blue-500 font-bold leading-tight mt-1">{meta.description}</p>
+                                        </div>
+
+                                        <div className="pr-4 flex items-center justify-center text-blue-300">
+                                            <ChevronRight size={24} strokeWidth={3} />
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
           </main>
         </div>
+      )}
+
+      {view === ViewState.VERB_TABLE && (
+         <VerbConjugationTable onBack={handleBackToHome} onStartLesson={startLesson} />
       )}
 
       {view === ViewState.FAVORITES && (
@@ -705,11 +881,11 @@ const App: React.FC = () => {
               <div className="space-y-4 pb-6">
                 {PREDEFINED_LESSONS
                   .filter(lesson => favorites.includes(lesson.id))
-                  .map((lesson, idx) => (
+                  .map((lesson) => (
                     <LessonCard
                       key={lesson.id}
                       lesson={lesson}
-                      index={idx}
+                      index={getLessonIndexByCategory(lesson)}
                       onClick={() => startLesson(lesson)}
                       isCompleted={completedLessons.includes(lesson.id)}
                       isFavorite={true}
@@ -748,19 +924,65 @@ const App: React.FC = () => {
         <div key="category" className="flex-1 flex flex-col h-full animate-enter-app">
           {renderHeader(selectedCategory, CATEGORY_META[selectedCategory].description, handleBackToHome)}
           
+          {/* Custom Search Toolbar for Category View */}
+          <div className="bg-blue-500 px-4 pb-5 pt-3 border-b-[3px] border-blue-950 flex-shrink-0 z-20 flex gap-2">
+              {/* Keyword Search */}
+              <div className="bg-white rounded-xl border-2 border-blue-950 flex items-center px-3 py-3 shadow-sketchy-sm focus-within:shadow-sketchy transition-all flex-1 min-w-0">
+                  <Search size={22} className="text-blue-300 mr-2 flex-shrink-0" />
+                  <input 
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="搜索标题..."
+                      className="flex-1 bg-transparent border-none outline-none font-bold text-blue-950 placeholder-blue-300 font-hand text-lg min-w-0"
+                  />
+                  {searchQuery && (
+                      <button onClick={() => setSearchQuery('')} className="p-1 text-blue-300 hover:text-blue-500 flex-shrink-0">
+                          <X size={20} />
+                      </button>
+                  )}
+              </div>
+
+              {/* Number Jump Input - Separate Component */}
+              <div className="bg-white rounded-xl border-2 border-blue-950 flex items-center px-2 py-3 shadow-sketchy-sm w-28 flex-shrink-0">
+                    <Hash size={16} className="text-blue-300 mr-1 flex-shrink-0" />
+                    <input 
+                        type="number"
+                        value={jumpNum}
+                        onChange={(e) => setJumpNum(e.target.value)}
+                        placeholder="序号"
+                        className="w-full bg-transparent border-none outline-none font-black text-blue-950 placeholder-blue-300 font-hand text-lg text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        onKeyDown={(e) => e.key === 'Enter' && handleJumpToLesson()}
+                    />
+                    <button 
+                        onClick={handleJumpToLesson}
+                        className="bg-blue-500 text-white p-1 rounded-md ml-1 hover:bg-blue-600 active:scale-95"
+                    >
+                        <ArrowIcon size={14} strokeWidth={4} />
+                    </button>
+              </div>
+          </div>
+          
           <main className="flex-1 overflow-y-auto p-4 min-h-0 hide-scrollbar chat-bg-pattern">
             <div className="space-y-4 pb-6">
-                {PREDEFINED_LESSONS.filter(l => l.category === selectedCategory).map((lesson, idx) => (
-                  <LessonCard 
-                    key={lesson.id}
-                    lesson={lesson}
-                    index={idx}
-                    onClick={() => startLesson(lesson)}
-                    isCompleted={completedLessons.includes(lesson.id)}
-                    isFavorite={favorites.includes(lesson.id)}
-                    onToggleFavorite={handleToggleFavorite}
-                  />
-                ))}
+                {getFilteredLessons(selectedCategory).length > 0 ? (
+                    getFilteredLessons(selectedCategory).map((lesson) => (
+                        <LessonCard 
+                            key={lesson.id}
+                            lesson={lesson}
+                            index={getLessonIndexByCategory(lesson)} // Use global category index
+                            onClick={() => startLesson(lesson)}
+                            isCompleted={completedLessons.includes(lesson.id)}
+                            isFavorite={favorites.includes(lesson.id)}
+                            onToggleFavorite={handleToggleFavorite}
+                        />
+                    ))
+                ) : (
+                    <div className="text-center py-10 opacity-50">
+                        <Search size={48} className="mx-auto mb-2" strokeWidth={2}/>
+                        <p className="font-bold text-blue-950">没有找到相关课程</p>
+                    </div>
+                )}
             </div>
           </main>
         </div>
@@ -769,7 +991,7 @@ const App: React.FC = () => {
       {view === ViewState.CHAT && currentLesson && (
         <div key="chat" className="flex-1 flex flex-col h-full animate-enter-app">
            <div className="bg-blue-500 text-white px-4 py-3 flex items-center gap-3 border-b-[3px] border-blue-950 shadow-sm z-30 flex-shrink-0">
-               <button onClick={currentLesson.category === 'Custom' ? handleBackToHome : handleBackToCategories} className="p-1.5 bg-blue-400 border-2 border-blue-950 rounded-lg hover:bg-blue-300 active:translate-y-0.5 shadow-sketchy-sm">
+               <button onClick={handleChatBack} className="p-1.5 bg-blue-400 border-2 border-blue-950 rounded-lg hover:bg-blue-300 active:translate-y-0.5 shadow-sketchy-sm">
                    <ArrowLeft size={18} strokeWidth={3} />
                </button>
                <div className="flex-1 min-w-0">
@@ -787,63 +1009,46 @@ const App: React.FC = () => {
                         {/* Custom SVG Jar Icon */}
                         <div className="relative w-5 h-5 flex items-center justify-center">
                             {/* Jar Body */}
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-blue-950">
-                                <path d="M6 4V2H18V4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-                                <path d="M7 4L5 7V21C5 21.5523 5.44772 22 6 22H18C18.5523 22 19 21.5523 19 21V7L17 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                                {/* Fill Level */}
-                                {notebook.some(n => n.lessonTitle === currentLesson.title) && (
-                                   <rect x="7" y={20 - Math.min(12, Math.max(2, (notebook.filter(n => n.lessonTitle === currentLesson.title).length) * 2))} width="10" height={Math.min(12, Math.max(2, (notebook.filter(n => n.lessonTitle === currentLesson.title).length) * 2))} fill="#FACC15" rx="1" />
-                                )}
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 2L15 8L21 9L17 14L18 20L12 17L6 20L7 14L3 9L9 8L12 2Z" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                         </div>
                     </button>
-
-                    <button 
-                        onClick={() => { playClick(); setIsSettingsOpen(true); }}
-                        className="p-1.5 bg-blue-800 border-2 border-blue-950 rounded-lg hover:bg-blue-700 transition-colors shadow-sketchy-sm"
-                    >
-                        <SettingsIcon size={16} strokeWidth={2.5} className="text-white" />
-                    </button>
                </div>
            </div>
-
-           <div className="flex-1 overflow-y-auto p-4 scroll-smooth min-h-0 hide-scrollbar chat-bg-pattern relative">
-              {messages.map((msg, idx) => {
-                 if (msg.type === 'summary') {
-                    return <SummaryCard key={msg.id} message={msg} ttsSpeed={ttsSpeed} />
-                 }
-                 return (
-                    <ChatBubble 
-                        key={msg.id} 
-                        message={msg} 
-                        showAvatar={msg.role === 'model' && (!messages[idx-1] || messages[idx-1].role !== 'model')} 
-                        fontSize={fontSize}
-                        collectedSentences={notebook.map(n => n.text)}
-                        onToggleCollect={handleToggleNotebookEntry}
-                        ttsSpeed={ttsSpeed}
-                        onExplain={handleExplain}
-                        onCollectAnim={handleCollectAnimation}
-                    />
-                 )
-              })}
-              <div ref={chatEndRef} />
-              <SummaryFab 
-                onClick={handleGenerateSummary}
-                loading={isSummarizing}
-                disabled={messages.length < 2}
-              />
-           </div>
+           
+           <main className="flex-1 overflow-y-auto p-4 min-h-0 hide-scrollbar chat-bg-pattern flex flex-col">
+                <div className="flex-1">
+                    {messages.map((msg, index) => (
+                        <ChatBubble 
+                            key={msg.id} 
+                            message={msg} 
+                            showAvatar={msg.role === 'model'}
+                            fontSize={fontSize}
+                            collectedSentences={notebook.map(n => n.text)}
+                            onToggleCollect={handleToggleNotebookEntry}
+                            ttsSpeed={ttsSpeed}
+                            onExplain={handleExplain}
+                            onCollectAnim={handleCollectAnimation}
+                        />
+                    ))}
+                    <div ref={chatEndRef} />
+                </div>
+           </main>
 
            <ChatInput 
-             onSend={handleSendMessage} 
-             suggestions={suggestions}
-             disabled={inputDisabled || isSummarizing}
+                onSend={handleSendMessage} 
+                suggestions={suggestions}
+                disabled={inputDisabled} 
+           />
+
+           <SummaryFab 
+                onClick={handleGenerateSummary} 
+                loading={isSummarizing}
+                disabled={inputDisabled || messages.length < 2}
            />
         </div>
       )}
-
     </div>
   );
 };
-
-export default App;

@@ -16,6 +16,12 @@ export interface Lesson {
   duration: string;
   initialPrompt: string;
   category: string;
+  mode?: 'lesson' | 'roleplay';
+  roleplayData?: {
+    role: string;
+    scenario: string;
+    objective: string;
+  };
   // tasks property removed
 }
 
@@ -40,5 +46,6 @@ export enum ViewState {
   CHAT = 'CHAT',
   FAVORITES = 'FAVORITES',
   PROMO = 'PROMO',
-  NOTEBOOK = 'NOTEBOOK'
+  NOTEBOOK = 'NOTEBOOK',
+  VERB_TABLE = 'VERB_TABLE'
 }
