@@ -1,7 +1,7 @@
 
 
 
-import { Lesson, Message } from "../types";
+import { Lesson, Message, ExplanationData } from "../types";
 
 // Configuration for SiliconFlow
 const API_URL = 'https://api.siliconflow.cn/v1/chat/completions';
@@ -258,32 +258,48 @@ export const generateSpeech = async (text: string, rate: number = 1.0): Promise<
     });
 };
 
-export const explainText = async (text: string): Promise<string> => {
+export const explainText = async (text: string): Promise<ExplanationData> => {
     if (!currentApiKey) throw new Error("MISSING_API_KEY");
 
     const prompt = `
-你是一位专业的日语词典编纂者和资深日语教师。
-请对以下文本进行**深度解析**，就像一本详细的辞典条目一样。
+你是一位精通日语的语言学家和词典编纂者。你的任务是为一个给定的日语句子提供全面的分析。
+输出必须是一个**单一、有效**的 JSON 对象，不能包含任何 markdown 格式或多余的文本。
 
-### 待解析文本：
-『 ${text} 』
+请分析以下句子:
+"${text}"
 
-### 你的任务：
-请严格按照以下 Markdown 格式输出解析内容（不要输出任何开场白）：
+请生成一个符合以下结构的 JSON 对象 (所有键和值都必须是中文):
+{
+  "frequency": "'高', '中', 或 '低'",
+  "level": "'N5', 'N4', 'N3', 'N2', 'N1', 或 '未知'",
+  "targetSentence": "原始句子: ${text}",
+  "translation": "一个自然且准确的中文翻译。",
+  "context": "简要解释这个句子在何时以及为何使用。描述其语境、细微差别和适用场合。",
+  "grammarTree": {
+    "summary": "对主要语法模式的简明中文总结。",
+    "tree": [
+      // 一个代表句子结构节点的数组。
+      // 节点格式: { "part": "单词/短语", "role": "语法作用 (中文)", "children": [ ...nodes ] }
+      // 'それはりんごではない' 的例子:
+      // [
+      //   { "part": "それ", "role": "名词 (主语/主题)" },
+      //   { "part": "は", "role": "主题助词" },
+      //   { "part": "りんご", "role": "名词" },
+      //   { "part": "ではない", "role": "否定谓语" }
+      // ]
+    ]
+  },
+  "vocabulary": [
+    // 一个词汇项目数组。
+    // { "word": "单词", "reading": "假名读音", "type": "词性 (中文)", "meaning": "中文意思" }
+  ],
+  "synonyms": [
+    // 一个包含1-3个字符串的数组，代表表达相同意思的其它方式。
+  ]
+}
 
-## 📖 释义
-(给出地道、通顺的中文翻译)
-
-## 🔍 语法/结构拆解
-(详细分析句子结构、接续方式、核心语法点，如果包含动词变形请指出原形)
-
-## 📚 核心词汇
-(请以列表形式列出句子中的生词)
-* **单词** (假名) [词性] : 含义
-
-## 💡 语感与细节
-(说明这句话的语气、使用场景、是否有弦外之音或文化背景)
-    `;
+**至关重要**: 除了 JSON 对象本身，不要输出任何其他内容。响应必须以 '{' 开始，以 '}' 结束。
+`;
 
     try {
         const response = await fetch(API_URL, {
@@ -298,7 +314,8 @@ export const explainText = async (text: string): Promise<string> => {
                     { role: 'user', content: prompt }
                 ],
                 stream: false,
-                temperature: 0.7,
+                temperature: 0.5, // Lower temperature for structured output
+                response_format: { type: 'json_object' } // Request JSON output
             }),
         });
 
@@ -309,12 +326,19 @@ export const explainText = async (text: string): Promise<string> => {
         }
 
         const data = await response.json();
-        const resultText = data.choices[0]?.message?.content;
+        const jsonString = data.choices[0]?.message?.content;
 
-        if (!resultText) {
-            throw new Error("Failed to generate explanation.");
+        if (!jsonString) {
+            throw new Error("Failed to generate explanation: empty response.");
         }
-        return resultText.trim();
+        
+        try {
+            const parsedData: ExplanationData = JSON.parse(jsonString);
+            return parsedData;
+        } catch (e) {
+            console.error("Failed to parse JSON from API:", jsonString);
+            throw new Error("Failed to parse explanation data.");
+        }
 
     } catch (error) {
         console.error("Explanation API Failed", error);
@@ -344,7 +368,7 @@ ${conversationHistory}
     *   请务必使用 **H3 (###)** 标题来标记以下三个板块（不要用加粗，要用标题）：
         *   \`### 核心语法\` (使用 blockquote 引用关键句型)
         *   \`### 关键例句\` (列出 1-3 个最具代表性的例句，并附上中文翻译)
-        *   \`### 新单词\` (列出本课出现的新词汇)
+        *   \`### 新单词\` (以列表形式列出本课新词汇，**严格**遵循 \`* \`单词\` (假名) [词性] : 含义\` 的格式，每个单词占一行。)
 3.  **标记发音**：在所有日语例句和单词上，使用反引号 \` 将其包裹。
 
 只输出小结内容，不要说其他话。

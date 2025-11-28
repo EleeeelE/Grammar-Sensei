@@ -6,9 +6,20 @@ import { MarkdownRenderer } from './MarkdownRenderer';
 interface SummaryCardProps {
   message: Message;
   ttsSpeed: number;
+  collectedSentences?: string[];
+  onToggleCollect?: (text: string) => void;
+  onExplain?: (text: string) => void;
+  onCollectAnim?: (startX: number, startY: number) => void;
 }
 
-export const SummaryCard: React.FC<SummaryCardProps> = ({ message, ttsSpeed }) => {
+export const SummaryCard: React.FC<SummaryCardProps> = ({ 
+  message, 
+  ttsSpeed, 
+  collectedSentences, 
+  onToggleCollect, 
+  onExplain, 
+  onCollectAnim 
+}) => {
   return (
     <div className="my-6 animate-pop-in flex w-full justify-start">
         <style>
@@ -99,7 +110,14 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({ message, ttsSpeed }) =
       </div>
 
       <div className="summary-bubble relative max-w-[90%] px-5 py-4 leading-relaxed text-blue-950">
-        <MarkdownRenderer markdownText={message.text} ttsSpeed={ttsSpeed} />
+        <MarkdownRenderer 
+            markdownText={message.text} 
+            ttsSpeed={ttsSpeed} 
+            collectedSentences={collectedSentences}
+            onToggleCollect={onToggleCollect}
+            onExplain={onExplain}
+            onCollectAnim={onCollectAnim}
+        />
       </div>
     </div>
   );

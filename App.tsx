@@ -1,8 +1,5 @@
-
-
-
 import React, { useState, useRef, useEffect } from 'react';
-import { ViewState, Message, Lesson, SuggestedReply, FontSize, NotebookEntry, TeacherPersona } from './types';
+import { ViewState, Message, Lesson, SuggestedReply, FontSize, NotebookEntry, TeacherPersona, ExplanationData } from './types';
 import { PREDEFINED_LESSONS, DEFAULT_SUGGESTIONS, LESSON_CATEGORIES, CATEGORY_META, TEACHER_PERSONAS } from './constants';
 import { startChat, sendMessageStream, parseContentWithOptions, generateSummary, setApiKey, explainText } from './services/geminiService';
 import { setSoundEnabled as setAudioSoundEnabled, setBgmEnabled as setAudioBgmEnabled, setBgmVolume as setAudioBgmVolume, playClick } from './services/audioService';
@@ -10,14 +7,14 @@ import { LessonCard } from './components/LessonCard';
 import { ChatBubble } from './components/ChatBubble';
 import { ChatInput } from './components/ChatInput';
 import { LandingPage } from './components/LandingPage';
-import { SummaryCard } from './components/SummaryCard';
+import { SummaryModal } from './components/SummaryModal';
 import { SummaryFab } from './components/SummaryFab';
 import { SettingsModal } from './components/SettingsModal';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { NotebookView } from './components/NotebookView';
 import { SessionNotes } from './components/SessionNotes';
 import { FlyingStar } from './components/FlyingStar';
-import { ExplanationPanel } from './components/ExplanationPanel';
+import { DictionaryView } from './components/DictionaryView';
 import { VerbConjugationTable } from './components/VerbConjugationTable';
 import { KeigoTable } from './components/KeigoTable';
 import { BookOpen, ChevronRight, ArrowLeft, Star, Sparkles, Settings as SettingsIcon, Book, Search, X, Hash, ArrowRight as ArrowIcon, Table, Crown } from 'lucide-react';
@@ -49,6 +46,8 @@ export const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState(''); // New State for Search
   const [jumpNum, setJumpNum] = useState(''); // State for separate number jump input
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [summaryContent, setSummaryContent] = useState<string | null>(null);
 
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -57,11 +56,10 @@ export const App: React.FC = () => {
   const [notebook, setNotebook] = useState<NotebookEntry[]>([]);
   const [isSessionNotesOpen, setIsSessionNotesOpen] = useState(false);
 
-  // Explanation Panel State
-  const [isExplanationOpen, setIsExplanationOpen] = useState(false);
-  const [explanationQuery, setExplanationQuery] = useState('');
-  const [explanationResult, setExplanationResult] = useState<string | null>(null);
+  // Dictionary View State
+  const [explanationData, setExplanationData] = useState<ExplanationData | null>(null);
   const [isExplaining, setIsExplaining] = useState(false);
+  const [isDictionaryOpen, setIsDictionaryOpen] = useState(false);
 
   // Animation State
   const [flyingStars, setFlyingStars] = useState<{id: string, startX: number, startY: number, endX: number, endY: number}[]>([]);
@@ -83,6 +81,15 @@ export const App: React.FC = () => {
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+  // FIX: Add ref to store pending bubble timers to prevent race conditions
+  const sequentialBubbleTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // FIX: Create a cleanup function to clear all pending timers
+  const clearPendingBubbles = () => {
+    sequentialBubbleTimers.current.forEach(clearTimeout);
+    sequentialBubbleTimers.current = [];
+  };
+
 
   const addBubblesSequentially = (bubbles: string[], initialThinkingId: string): Promise<void> => {
     return new Promise(resolve => {
@@ -105,39 +112,37 @@ export const App: React.FC = () => {
             setMessages(prev => prev.map(msg => (msg.id === thinkingId ? newBubble : msg)));
 
             if (index + 1 < bubbles.length) {
-                // Slower delay calculation for comfortable reading
-                // Base delay: 1500ms (1.5s)
-                // Per char: 80ms (approx 12 chars per second)
-                // Max delay: 5000ms (5s)
                 const delay = Math.min(5000, Math.max(1500, bubbleText.length * 80));
                 
-                setTimeout(() => {
-                const nextThinkingId = `thinking-${Date.now()}-${index + 1}`;
-                const thinkingBubble: Message = {
-                    id: nextThinkingId,
-                    role: 'model',
-                    text: '',
-                    isStreaming: true,
-                    timestamp: Date.now(),
-                    type: 'chat',
-                };
-                setMessages(prev => [...prev, thinkingBubble]);
-                
-                // Thinking animation duration (1s)
-                setTimeout(() => {
-                    processBubble(index + 1, nextThinkingId);
-                }, 1000);
+                const timer1 = setTimeout(() => {
+                  const nextThinkingId = `thinking-${Date.now()}-${index + 1}`;
+                  const thinkingBubble: Message = {
+                      id: nextThinkingId,
+                      role: 'model',
+                      text: '',
+                      isStreaming: true,
+                      timestamp: Date.now(),
+                      type: 'chat',
+                  };
+                  setMessages(prev => [...prev, thinkingBubble]);
+                  
+                  const timer2 = setTimeout(() => {
+                      processBubble(index + 1, nextThinkingId);
+                  }, 1000);
+                  sequentialBubbleTimers.current.push(timer2);
 
                 }, delay);
+                sequentialBubbleTimers.current.push(timer1);
+
             } else {
                 resolve();
             }
         };
 
-        // Initial delay before the first bubble converts from thinking state
-        setTimeout(() => {
+        const initialTimer = setTimeout(() => {
             processBubble(0, initialThinkingId);
         }, 1000);
+        sequentialBubbleTimers.current.push(initialTimer);
     });
 };
   
@@ -188,11 +193,14 @@ export const App: React.FC = () => {
         if (localKey && localKey.startsWith('sk-')) {
             setApiKey(localKey);
         } else {
-            // Delay slightly to let intro animation finish or avoid interference
             setTimeout(() => setShowApiKeyModal(true), 1000);
         }
     }
 
+    // FIX: Add cleanup for pending timers on component unmount
+    return () => {
+      clearPendingBubbles();
+    };
   }, []);
 
   // Save settings when changed
@@ -274,6 +282,8 @@ export const App: React.FC = () => {
   };
 
   const handleChatBack = () => {
+    // FIX: Clear pending bubbles when exiting a chat session
+    clearPendingBubbles();
     if (currentLesson?.category === 'Verb Conjugation') {
         playClick();
         setView(ViewState.VERB_TABLE);
@@ -385,11 +395,14 @@ export const App: React.FC = () => {
   }
 
   const startLesson = async (lesson: Lesson) => {
+    // FIX: Clear any pending bubbles from previous sessions
+    clearPendingBubbles();
     playClick();
     setCurrentLesson(lesson);
     setView(ViewState.CHAT);
     setMessages([]);
     setSuggestions([]);
+    setSummaryContent(null); // Reset cached summary for new lesson
     setIsSessionNotesOpen(false); // Reset note drawer
     setInputDisabled(true);
     const tempMsgId = Date.now().toString();
@@ -404,7 +417,6 @@ export const App: React.FC = () => {
     }]);
 
     try {
-      // Pass the selected persona prompt to the chat start
       const currentPersonaPrompt = TEACHER_PERSONAS[persona].prompt;
       startChat(lesson, currentPersonaPrompt);
       const responseStream = sendMessageStream(lesson.initialPrompt);
@@ -419,7 +431,6 @@ export const App: React.FC = () => {
 
       const { cleanText, options } = parseContentWithOptions(fullText);
       const bubbles = splitContentIntoBubbles(cleanText);
-      // GUARANTEE: Slice options to max 3 to prevent UI overflow
       const suggestionObjects = options.slice(0, 3).map(opt => ({ label: opt, value: opt }));
 
       await addBubblesSequentially(bubbles, tempMsgId);
@@ -429,7 +440,6 @@ export const App: React.FC = () => {
 
     } catch (error: any) {
       console.error("Chat Error:", error);
-      // Handle Auth Errors gracefully
       if (error.message === 'INVALID_TOKEN' || error.message === 'MISSING_API_KEY') {
         setMessages(prev => prev.filter(p => p.id !== tempMsgId));
         setShowApiKeyModal(true);
@@ -482,7 +492,6 @@ export const App: React.FC = () => {
     
             const { cleanText, options } = parseContentWithOptions(fullText);
             const bubbles = splitContentIntoBubbles(cleanText);
-            // GUARANTEE: Slice options to max 3 to prevent UI overflow
             const suggestionObjects = options.slice(0, 3).map(opt => ({ label: opt, value: opt }));
 
             await addBubblesSequentially(bubbles, tempMsgId);
@@ -514,63 +523,72 @@ export const App: React.FC = () => {
 
   const handleGenerateSummary = async () => {
     playClick();
-    if (isSummarizing || messages.length < 2) return;
+    if (isSummarizing) return;
+  
+    if (summaryContent) {
+      setIsSummaryModalOpen(true);
+      return;
+    }
+  
+    if (messages.filter(m => m.type === 'chat').length < 2) return;
+    
     setIsSummarizing(true);
-    setInputDisabled(true);
-
+    // BUG FIX: Do not disable the main chat input while summarizing.
+    // setInputDisabled(true); 
+  
     try {
         const summaryText = await generateSummary(messages);
-        const summaryMessage: Message = {
-            id: `summary-${Date.now()}`,
-            role: 'model',
-            text: summaryText,
-            timestamp: Date.now(),
-            type: 'summary',
-        };
-        setMessages(prev => [...prev, summaryMessage]);
+        setSummaryContent(summaryText);
+        setIsSummaryModalOpen(true);
     } catch (error: any) {
         console.error("Summary Generation Error:", error);
         if (error.message === 'INVALID_TOKEN' || error.message === 'MISSING_API_KEY') {
             setShowApiKeyModal(true);
         } else {
-            const errorMessage: Message = {
-                id: `error-${Date.now()}`,
-                role: 'model',
-                text: "抱歉，总结的时候好像出了一点小问题... 😵",
-                timestamp: Date.now(),
-                type: 'chat',
-            };
-            setMessages(prev => [...prev, errorMessage]);
+            setSummaryContent("抱歉，总结的时候好像出了一点小问题... 😵");
+            setIsSummaryModalOpen(true);
         }
     } finally {
         setIsSummarizing(false);
-        setInputDisabled(false);
+        // BUG FIX: Do not re-enable input as it was never disabled.
+        // setInputDisabled(false);
     }
   };
 
-  // Explanation Handler - Updated for Dictionary Panel
   const handleExplain = async (text: string) => {
-    if (inputDisabled || isSummarizing) return;
+    if (isExplaining) return;
     
-    // Close session notes if open
-    if (isSessionNotesOpen) setIsSessionNotesOpen(false);
-    
-    // Open Explanation Panel
-    setIsExplanationOpen(true);
-    setExplanationQuery(text);
-    setExplanationResult(null);
     setIsExplaining(true);
+    setExplanationData(null);
+    setIsDictionaryOpen(true);
 
     try {
         const result = await explainText(text);
-        setExplanationResult(result);
+        setExplanationData(result);
     } catch (error) {
         console.error("Explanation Error:", error);
-        setExplanationResult("抱歉，解析服务暂时不可用，请检查网络或 Key。");
+        setExplanationData({
+          targetSentence: text,
+          translation: '解析失败',
+          context: '抱歉，无法获取此句子的详细分析。请检查您的网络连接或API Key后重试。',
+          frequency: 'UNKNOWN',
+          level: 'Unknown',
+          grammarTree: { summary: '', tree: [] },
+          vocabulary: [],
+          synonyms: []
+        });
     } finally {
         setIsExplaining(false);
     }
   };
+
+  // BUG FIX: Create a dedicated handler to reset all dictionary state on close.
+  const handleDictionaryClose = () => {
+    setIsDictionaryOpen(false);
+    setExplanationData(null);
+    setIsExplaining(false); // Explicitly reset loading state
+  };
+
 
   useEffect(() => {
     if (chatEndRef.current) {
@@ -614,7 +632,6 @@ export const App: React.FC = () => {
   const getFilteredLessons = (category?: string) => {
       const query = searchQuery.toLowerCase().trim();
       
-      // If filtering by specific category, enable searching by serial number
       if (category) {
           const categoryLessons = PREDEFINED_LESSONS.filter(l => l.category === category);
           
@@ -625,13 +642,12 @@ export const App: React.FC = () => {
               return (
                   l.title.toLowerCase().includes(query) || 
                   l.subtitle.toLowerCase().includes(query) ||
-                  serial === query // Strict equality for exact number search if jumped
-                  || serial.includes(query) // Partial match for typing
+                  serial === query 
+                  || serial.includes(query) 
               );
           });
       }
 
-      // Global Search
       return PREDEFINED_LESSONS.filter(l => {
           return l.title.toLowerCase().includes(query) || 
                  l.subtitle.toLowerCase().includes(query) ||
@@ -703,6 +719,28 @@ export const App: React.FC = () => {
         <ApiKeyModal onSave={handleSaveApiKey} />
       )}
 
+      {/* Summary Modal */}
+      <SummaryModal 
+        isOpen={isSummaryModalOpen}
+        onClose={() => setIsSummaryModalOpen(false)}
+        content={summaryContent}
+        ttsSpeed={ttsSpeed}
+        collectedSentences={notebook.map(n => n.text)}
+        onToggleCollect={handleToggleNotebookEntry}
+        onExplain={handleExplain}
+        onCollectAnim={handleCollectAnimation}
+      />
+      
+      {/* Dictionary View Modal */}
+      {isDictionaryOpen && (
+        <DictionaryView 
+          loading={isExplaining}
+          data={explanationData}
+          onClose={handleDictionaryClose}
+          ttsSpeed={ttsSpeed}
+        />
+      )}
+
       {/* Session Notes Drawer (Only in Chat View) */}
       {view === ViewState.CHAT && currentLesson && (
         <SessionNotes 
@@ -714,17 +752,6 @@ export const App: React.FC = () => {
           onExplain={handleExplain}
         />
       )}
-
-      {/* Explanation Panel */}
-      <ExplanationPanel 
-        isOpen={isExplanationOpen}
-        onClose={() => setIsExplanationOpen(false)}
-        loading={isExplaining}
-        query={explanationQuery}
-        result={explanationResult}
-        ttsSpeed={ttsSpeed}
-        onExplainNested={handleExplain} // Allows clicking "explain" inside the explanation panel
-      />
 
       {/* Render Flying Stars */}
       {flyingStars.map(star => (
@@ -751,7 +778,6 @@ export const App: React.FC = () => {
           
           <main className="flex-1 overflow-y-auto p-4 pb-8 min-h-0 scroll-smooth hide-scrollbar chat-bg-pattern">
             
-            {/* Show search results if searching, otherwise show standard home content */}
             {searchQuery ? (
                 <div className="space-y-4 pb-6">
                     {getFilteredLessons().length > 0 ? (
@@ -759,7 +785,7 @@ export const App: React.FC = () => {
                             <LessonCard
                                 key={lesson.id}
                                 lesson={lesson}
-                                index={getLessonIndexByCategory(lesson)} // Show static index (Lesson 1 is 1)
+                                index={getLessonIndexByCategory(lesson)}
                                 onClick={() => startLesson(lesson)}
                                 isCompleted={completedLessons.includes(lesson.id)}
                                 isFavorite={favorites.includes(lesson.id)}
@@ -775,7 +801,6 @@ export const App: React.FC = () => {
                 </div>
             ) : (
                 <>
-                    {/* --- Free Exploration (Full Width) --- */}
                     <div className="mb-4 bg-white p-4 rounded-2xl border-[3px] border-blue-950 shadow-sketchy animate-pop-in">
                         <div className="flex items-center gap-2 mb-3">
                             <div className="bg-blue-100 border-2 border-blue-950 p-1.5 rounded-lg shadow-sm transform -rotate-6">
@@ -804,10 +829,8 @@ export const App: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* --- Tables Grid (Side by Side) --- */}
                     <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-pop-in" style={{ animationDelay: '100ms' }}>
                         
-                        {/* Verb Table Card */}
                         <div 
                             onClick={handleGoToVerbTable}
                             className="bg-white p-4 rounded-2xl border-[3px] border-blue-950 shadow-sketchy cursor-pointer active:scale-95 transition-transform flex flex-col justify-between"
@@ -824,7 +847,6 @@ export const App: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Keigo Table Card (Updated to Sky Blue) */}
                         <div 
                              onClick={handleGoToKeigoTable}
                              className="bg-white p-4 rounded-2xl border-[3px] border-blue-950 shadow-sketchy cursor-pointer active:scale-95 transition-transform flex flex-col justify-between"
@@ -883,7 +905,8 @@ export const App: React.FC = () => {
           </main>
         </div>
       )}
-
+      
+      
       {view === ViewState.VERB_TABLE && (
          <VerbConjugationTable onBack={handleBackToHome} onStartLesson={startLesson} />
       )}
@@ -943,9 +966,7 @@ export const App: React.FC = () => {
         <div key="category" className="flex-1 flex flex-col h-full animate-enter-app">
           {renderHeader(selectedCategory, CATEGORY_META[selectedCategory].description, handleBackToHome)}
           
-          {/* Custom Search Toolbar for Category View */}
           <div className="bg-blue-500 px-4 pb-5 pt-3 border-b-[3px] border-blue-950 flex-shrink-0 z-20 flex gap-2">
-              {/* Keyword Search */}
               <div className="bg-white rounded-xl border-2 border-blue-950 flex items-center px-3 py-3 shadow-sketchy-sm focus-within:shadow-sketchy transition-all flex-1 min-w-0">
                   <Search size={22} className="text-blue-300 mr-2 flex-shrink-0" />
                   <input 
@@ -962,7 +983,6 @@ export const App: React.FC = () => {
                   )}
               </div>
 
-              {/* Number Jump Input - Separate Component */}
               <div className="bg-white rounded-xl border-2 border-blue-950 flex items-center px-2 py-3 shadow-sketchy-sm w-28 flex-shrink-0">
                     <Hash size={16} className="text-blue-300 mr-1 flex-shrink-0" />
                     <input 
@@ -989,7 +1009,7 @@ export const App: React.FC = () => {
                         <LessonCard 
                             key={lesson.id}
                             lesson={lesson}
-                            index={getLessonIndexByCategory(lesson)} // Use global category index
+                            index={getLessonIndexByCategory(lesson)}
                             onClick={() => startLesson(lesson)}
                             isCompleted={completedLessons.includes(lesson.id)}
                             isFavorite={favorites.includes(lesson.id)}
@@ -1019,15 +1039,12 @@ export const App: React.FC = () => {
                </div>
                
                <div className="flex items-center gap-2">
-                    {/* Session Note Button (Star Jar) */}
                     <button 
                         ref={starJarRef}
                         onClick={() => { playClick(); setIsSessionNotesOpen(true); }}
                         className={`p-1.5 bg-white border-2 border-blue-950 rounded-lg hover:bg-blue-50 transition-all shadow-sketchy-sm relative ${isJarBouncing ? 'scale-110' : 'scale-100'}`}
                     >
-                        {/* Custom SVG Jar Icon */}
                         <div className="relative w-5 h-5 flex items-center justify-center">
-                            {/* Jar Body */}
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M12 2L15 8L21 9L17 14L18 20L12 17L6 20L7 14L3 9L9 8L12 2Z" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
@@ -1039,25 +1056,17 @@ export const App: React.FC = () => {
            <main className="flex-1 overflow-y-auto p-4 min-h-0 hide-scrollbar chat-bg-pattern flex flex-col">
                 <div className="flex-1">
                     {messages.map((msg, index) => (
-                        msg.type === 'summary' ? (
-                            <SummaryCard 
-                                key={msg.id} 
-                                message={msg} 
-                                ttsSpeed={ttsSpeed} 
-                            />
-                        ) : (
-                            <ChatBubble 
-                                key={msg.id} 
-                                message={msg} 
-                                showAvatar={msg.role === 'model'}
-                                fontSize={fontSize}
-                                collectedSentences={notebook.map(n => n.text)}
-                                onToggleCollect={handleToggleNotebookEntry}
-                                ttsSpeed={ttsSpeed}
-                                onExplain={handleExplain}
-                                onCollectAnim={handleCollectAnimation}
-                            />
-                        )
+                        <ChatBubble 
+                            key={msg.id} 
+                            message={msg} 
+                            showAvatar={msg.role === 'model'}
+                            fontSize={fontSize}
+                            collectedSentences={notebook.map(n => n.text)}
+                            onToggleCollect={handleToggleNotebookEntry}
+                            ttsSpeed={ttsSpeed}
+                            onExplain={handleExplain}
+                            onCollectAnim={handleCollectAnimation}
+                        />
                     ))}
                     <div ref={chatEndRef} />
                 </div>
@@ -1072,7 +1081,7 @@ export const App: React.FC = () => {
            <SummaryFab 
                 onClick={handleGenerateSummary} 
                 loading={isSummarizing}
-                disabled={inputDisabled || messages.length < 2}
+                disabled={inputDisabled || messages.filter(m => m.type === 'chat').length < 2}
            />
         </div>
       )}

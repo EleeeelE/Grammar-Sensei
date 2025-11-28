@@ -1,11 +1,12 @@
 
+
 export interface Message {
   id: string;
   role: 'user' | 'model';
   text: string;
   timestamp: number;
   isStreaming?: boolean;
-  type?: 'chat' | 'summary';
+  type?: 'chat';
 }
 
 export interface Lesson {
@@ -50,4 +51,33 @@ export enum ViewState {
   NOTEBOOK = 'NOTEBOOK',
   VERB_TABLE = 'VERB_TABLE',
   KEIGO_TABLE = 'KEIGO_TABLE'
+}
+
+// Types for the new Dictionary View
+export interface GrammarNode {
+  part: string;
+  role: string;
+  children?: GrammarNode[];
+}
+
+export interface VocabularyItem {
+  word: string;
+  reading: string;
+  type: string;
+  meaning: string;
+}
+
+export interface ExplanationData {
+  // FIX: Add 'UNKNOWN' to allow for error states or undetermined frequency, aligning it with the 'level' property's 'Unknown' state.
+  frequency: 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
+  level: 'N5' | 'N4' | 'N3' | 'N2' | 'N1' | 'Unknown';
+  targetSentence: string;
+  translation: string;
+  context: string;
+  grammarTree: {
+    summary: string;
+    tree: GrammarNode[];
+  };
+  vocabulary: VocabularyItem[];
+  synonyms: string[];
 }

@@ -10,7 +10,7 @@ interface SummaryFabProps {
 export const SummaryFab: React.FC<SummaryFabProps> = ({ onClick, loading, disabled }) => {
   const fabRef = useRef<HTMLButtonElement>(null);
   // Initial position
-  const [position, setPosition] = useState({ right: 24, bottom: 100 });
+  const [position, setPosition] = useState({ right: 24, bottom: 140 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0, right: 0, bottom: 0 });
   const movedDistanceRef = useRef(0);
