@@ -138,7 +138,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
           {/* Text Content & Button */}
           <div className="flex-none relative z-30 px-6 pb-8 text-center w-full">
                <h1 className="text-4xl font-black text-white drop-shadow-md font-hand mb-2 animate-slide-up">
-                  像聊天一样<br/>学地道日语
+                  像聊天一样<br/>学地道日语！
                </h1>
                <p className="text-blue-100 font-bold mb-6 text-sm animate-slide-up" style={{ animationDelay: '0.1s' }}>
                    拒绝枯燥 · AI 互动 · 0 基础通关
