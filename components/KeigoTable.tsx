@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import { ArrowLeft, Info, Dumbbell, Zap, BookOpen, X, Send } from 'lucide-react';
 import { Lesson } from '../types';
@@ -239,7 +241,7 @@ export const KeigoTable: React.FC<KeigoTableProps> = ({ onBack, onStartLesson })
                     <PracticeButton onClick={() => openPracticeModal('特殊敬语：見る')} />
                   </td>
                   <td className="p-3 border-r-2 border-blue-950 text-orange-600">ご覧になる (ごらんになる)</td>
-                  <td className="p-3 border-r-2 border-blue-950 text-emerald-600">拝見する (はいけんする)</td>
+                  <td className="p-3 border-r-2 border-blue-950 text-emerald-600">拝见する (はいけんする)</td>
                   <td className="p-3">見ます</td>
                 </tr>
 
@@ -305,14 +307,14 @@ export const KeigoTable: React.FC<KeigoTableProps> = ({ onBack, onStartLesson })
               <span className="bg-orange-200 px-2 py-0.5 rounded text-orange-800 mr-2 font-black">尊敬语</span>
               用于抬高对方（长辈、上司、客户）的行为、状态或所有物。
               <br/>
-              <span className="text-xs text-blue-500 ml-11">例：社长正在吃饭 -> 社長が召し上がっています。</span>
+              <span className="text-xs text-blue-500 ml-11">例：社长正在吃饭 &rarr; 社長が召し上がっています。</span>
             </div>
             
             <div className="border-t border-blue-200 pt-2">
               <span className="bg-emerald-200 px-2 py-0.5 rounded text-emerald-800 mr-2 font-black">谦让语</span>
               用于压低自己（或己方人员）的行为，以示对对方的尊重。
               <br/>
-              <span className="text-xs text-blue-500 ml-11">例：我正在吃饭 -> 私がいただいています。</span>
+              <span className="text-xs text-blue-500 ml-11">例：我正在吃饭 &rarr; 私がいただいています。</span>
             </div>
 
             <div className="border-t border-blue-200 pt-2">
