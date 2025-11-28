@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ExplanationData, GrammarNode } from '../types';
 import { generateSpeech } from '../services/geminiService';
@@ -90,7 +89,7 @@ export const DictionaryView: React.FC<DictionaryViewProps> = ({ loading, data, o
                   <Volume2 size={32} />
                 </button>
                 <div className="flex-1">
-                  <p className="text-3xl font-black text-blue-950 mb-1">{data.targetSentence}</p>
+                  <p className="text-2xl font-black text-blue-950 mb-1">{data.targetSentence}</p>
                   <p className="text-gray-500 font-bold">{data.translation}</p>
                 </div>
               </div>
@@ -104,7 +103,7 @@ export const DictionaryView: React.FC<DictionaryViewProps> = ({ loading, data, o
               <h3 className="text-sm font-black uppercase text-blue-950">语法结构树</h3>
             </div>
             <div className="p-6">
-              <div className="flex items-start overflow-x-auto pb-4 hide-scrollbar">
+              <div className="flex items-start overflow-x-auto pb-4 hide-scrollbar cursor-grab active:cursor-grabbing">
                 {data.grammarTree.tree.map((node, index) => (
                   <GrammarNodeComponent key={index} node={node} isLast={index === data.grammarTree.tree.length - 1} />
                 ))}
@@ -135,15 +134,15 @@ export const DictionaryView: React.FC<DictionaryViewProps> = ({ loading, data, o
                 </div>
                 <div className="p-4 space-y-2">
                     {data.vocabulary.map((item, index) => (
-                        <div key={index} className={`grid grid-cols-3 gap-2 items-center p-2 rounded ${index % 2 === 0 ? 'bg-blue-50/50' : ''}`}>
-                            <div className="col-span-1">
+                        <div key={index} className="grid grid-cols-5 gap-2 items-start p-3 border-b border-blue-100 last:border-b-0">
+                            <div className="col-span-2">
                                 <p className="font-black text-blue-950 text-lg">{item.word}</p>
                                 <p className="text-xs text-blue-400 font-bold">{item.reading}</p>
                             </div>
-                            <div className="col-span-1 text-center">
-                                <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs font-bold border border-blue-200">{item.type}</span>
+                            <div className="col-span-2 text-left">
+                                <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded-lg text-xs font-bold border border-blue-200 inline-block">{item.type}</span>
                             </div>
-                            <div className="col-span-1 font-bold text-blue-700 text-sm">{item.meaning}</div>
+                            <div className="col-span-1 font-bold text-blue-700 text-base text-right">{item.meaning}</div>
                         </div>
                     ))}
                 </div>
@@ -174,7 +173,7 @@ export const DictionaryView: React.FC<DictionaryViewProps> = ({ loading, data, o
             className="absolute inset-0 bg-blue-950/60 backdrop-blur-sm"
             onClick={handleClose}
         ></div>
-      <div className="bg-white w-full max-w-5xl rounded-2xl border-[3px] border-blue-950 shadow-sketchy-lg my-8 animate-pop-in flex flex-col max-h-[95vh]">
+      <div className="relative z-10 bg-white w-full max-w-5xl rounded-2xl border-[3px] border-blue-950 shadow-sketchy-lg my-8 animate-pop-in flex flex-col max-h-[95vh]">
         {/* Header */}
         <div className="border-b-[3px] border-blue-950 p-4 flex justify-between items-center bg-blue-50 flex-shrink-0">
           <div className="flex items-center gap-3">

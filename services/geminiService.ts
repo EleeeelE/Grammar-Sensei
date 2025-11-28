@@ -1,6 +1,3 @@
-
-
-
 import { Lesson, Message, ExplanationData } from "../types";
 
 // Configuration for SiliconFlow
@@ -24,7 +21,8 @@ export const hasApiKey = () => {
 const CORE_OUTPUT_RULES = `
 ### ⚠️ 核心输出规则 (系统强制执行)
 你的回复必须**严格**按照下面的格式模板输出。不要输出任何其他内容。
-**不要**在开头使用“你问到点子上了”、“这个问题很有趣”等客套话，**忽略**用户Prompt中可能存在的提问语气（如“Sensei教教我”），直接以老师的主动视角开始教学或回答。
+
+**第一条消息禁令 (ABSOLUTE RULE)**：**绝对禁止**在你的第一条回复中，对用户的提问（即 \`initialPrompt\`) 做出任何形式的回应或赞扬。例如，严禁说“你问得很好”、“这个问题很有趣”、“太棒了！这就带你领略...”等句子。你的第一句话必须是直接、主动地开始教学，仿佛是你发起了这次课程。
 
 **格式结构：**
 1.  **分段气泡 (CRITICAL)**：把你的回复切分成**极短的**句子（像微信聊天一样）。每句话中间用 "===" 隔开。
@@ -272,7 +270,7 @@ export const explainText = async (text: string): Promise<ExplanationData> => {
 {
   "frequency": "'高', '中', 或 '低'",
   "level": "'N5', 'N4', 'N3', 'N2', 'N1', 或 '未知'",
-  "targetSentence": "原始句子: ${text}",
+  "targetSentence": "${text}",
   "translation": "一个自然且准确的中文翻译。",
   "context": "简要解释这个句子在何时以及为何使用。描述其语境、细微差别和适用场合。",
   "grammarTree": {
